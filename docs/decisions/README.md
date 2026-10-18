@@ -16,14 +16,14 @@ New package/project/abstraction; any item in `AGENTS.md §1`; any deviation from
 ## Index
 | ID | Title | Status | Needed before |
 |---|---|---|---|
-| ADR-0001 | Authentication model | Pending | Phase 1A |
-| ADR-0002 | User provisioning and activation | Pending | Phase 1A |
+| ADR-0001 | Authentication model | Accepted  | Phase 1A |
+| ADR-0002 | User provisioning and activation | Accepted  | Phase 1A |
 | ADR-0003 | University Student API contract | Pending | Phase 1B |
-| ADR-0004 | Staff data scope | Pending | Phase 1A (hook exists regardless) |
+| ADR-0004 | Staff data scope | Accepted  | Phase 1A (hook exists regardless) |
 | ADR-0005 | Expired/staleness policy | Pending | Phase 3 |
-| ADR-0006 | Hosting, deployment, log retention | Pending | Phase 1A |
-| ADR-0007 | SQL Server version and backup | Pending | Phase 1A |
-| ADR-0008 | Data Protection key storage | Pending | Phase 1A |
+| ADR-0006 | Hosting, deployment, log retention | Accepted  | Phase 1A |
+| ADR-0007 | SQL Server version and backup | Accepted  | Phase 1A |
+| ADR-0008 | Data Protection key storage | Accepted  | Phase 1A |
 | ADR-0009 | Jalali date picker | Pending | Phase 2 |
 | ADR-0010 | File retention, cleanup eligibility rules/thresholds, file-store backup | Pending | Phase 1C |
 | ADR-0011 | Tailwind CSS v4 browser-support confirmation | Baseline chosen (v4); confirmation pending | Phase 1D |
