@@ -5,7 +5,7 @@ namespace GraduateRecords.Tests.Architecture;
 public sealed class DependencyRulesTests
 {
     [Fact]
-    public void Domain_must_not_depend_on_Application_Infrastructure_Web_or_framework_ui()
+    public void Domain_must_not_depend_on_any_outer_layer_or_framework()
     {
         var result = Types.InAssembly(typeof(Domain.AssemblyMarker).Assembly)
             .ShouldNot()
@@ -15,14 +15,16 @@ public sealed class DependencyRulesTests
                 "GraduateRecords.Web",
                 "Microsoft.EntityFrameworkCore",
                 "Microsoft.AspNetCore",
-                "Microsoft.Extensions.Logging")
+                "Microsoft.Extensions.Logging",
+                "System.Net.Http",
+                "System.IO")
             .GetResult();
 
         Assert.True(result.IsSuccessful, FormatFailures(result));
     }
 
     [Fact]
-    public void Application_must_not_depend_on_Infrastructure_Web_or_SqlServer()
+    public void Application_must_not_depend_on_Infrastructure_Web_Identity_or_SqlServer()
     {
         var result = Types.InAssembly(typeof(Application.AssemblyMarker).Assembly)
             .ShouldNot()
@@ -30,9 +32,13 @@ public sealed class DependencyRulesTests
                 "GraduateRecords.Infrastructure",
                 "GraduateRecords.Web",
                 "Microsoft.EntityFrameworkCore.SqlServer",
-                "Microsoft.Data.SqlServer",
+                "Microsoft.EntityFrameworkCore.Relational",
+                "Microsoft.Data.SqlClient",
                 "Microsoft.AspNetCore.Mvc",
-                "Microsoft.AspNetCore.Http")
+                "Microsoft.AspNetCore.Http",
+                "Microsoft.AspNetCore.Identity",
+                "System.Net.Http",
+                "System.IO")
             .GetResult();
 
         Assert.True(result.IsSuccessful, FormatFailures(result));
@@ -50,16 +56,35 @@ public sealed class DependencyRulesTests
     }
 
     [Fact]
-    public void Controllers_must_not_use_AppDbContext()
+    public void Web_controllers_must_not_depend_on_Infrastructure()
     {
-        var controllerAssembly = typeof(Web.Controllers.HomeController).Assembly;
-        var result = Types.InAssembly(controllerAssembly)
+        var result = Types.InAssembly(typeof(Web.Controllers.HomeController).Assembly)
             .That()
             .ResideInNamespace("GraduateRecords.Web.Controllers")
             .Or()
             .ResideInNamespaceStartingWith("GraduateRecords.Web.Areas")
             .ShouldNot()
-            .HaveDependencyOn("GraduateRecords.Infrastructure.Persistence")
+            .HaveDependencyOn("GraduateRecords.Infrastructure")
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, FormatFailures(result));
+    }
+
+    [Fact]
+    public void Web_to_Infrastructure_is_limited_to_the_composition_root()
+    {
+        // AGENTS §2.2 permits Web → Infrastructure only for Program.cs composition and,
+        // later, ASP.NET Identity plumbing inside AccountController. AccountController
+        // does not exist yet.
+        var result = Types.InAssembly(typeof(Web.Controllers.HomeController).Assembly)
+            .That()
+            .ResideInNamespaceStartingWith("GraduateRecords.Web")
+            .And()
+            .DoNotHaveNameStartingWith("Program")
+            .And()
+            .DoNotHaveName("AccountController")
+            .ShouldNot()
+            .HaveDependencyOn("GraduateRecords.Infrastructure")
             .GetResult();
 
         Assert.True(result.IsSuccessful, FormatFailures(result));

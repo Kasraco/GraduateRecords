@@ -51,10 +51,13 @@ separate concern and its outage must not affect authentication.
 8. Roles and permissions are managed only in the local database. SSO claims
    other than the National ID are never used to grant roles or permissions.
 9. First-login provisioning is allowed only if the National ID exists in the
-   synchronized local Student records or is pre-registered as staff/admin.
-   Otherwise access is denied with a message such as "your account is not
-   defined in this system", and an audit event is written. Having an SSO
-   account alone never grants access.
+   synchronized local Student records, is found by a bounded first-provisioning
+   directory lookup (ADR-0002 rule 3, AGENTS §12 — identity proofing is never
+   skipped), or is pre-registered as staff/admin. Otherwise access is denied with
+   a message such as "your account is not defined in this system", and an audit
+   event is written. Having an SSO account alone never grants access. This
+   lookup is a post-authentication provisioning step and is never part of the
+   authentication path itself.
 10. A person who is both a student and staff is one user with multiple roles.
 
 ### Local password and break-glass

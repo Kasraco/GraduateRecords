@@ -35,7 +35,10 @@ staff must coexist with synchronization.
 Authorization uses roles that carry permissions, enforced through ASP.NET Core
 authorization policies. Permissions are code constants. The default role-to-permission
 mapping is seeded into Identity role claims (`permission` claim type).
-An admin UI to edit the mapping is out of scope for the first release.
+An admin UI to edit the permission-to-role mapping is out of scope for the first
+release; the default mapping is seeded. Assigning roles to users is in scope
+(ROADMAP Phase 1A), and any such operation must enforce AGENTS §13: an actor cannot
+grant a permission (or a role carrying it) that the actor does not hold.
 
 | Permission | Student | GraduateStaff | Administrator |
 |---|---|---|---|
@@ -51,8 +54,12 @@ An admin UI to edit the mapping is out of scope for the first release.
 | `Settings.Manage` (e.g. `StudentStatusPolicy`) | - | - | yes |
 | `Audit.View` | - | - | yes |
 
-Student actions (own profile view, own submissions, drafts, submit, resubmit) are not
-permission-based; they are governed by ownership rules in section 3.
+Student actions (own profile view, own submissions, drafts, submit, resubmit) still
+carry a controller permission attribute per AGENTS §13 (`[HasPermission(...)]`), and
+are additionally governed by the ownership rules in section 3. Authorization is
+always permission **plus** resource ownership; ownership alone is not sufficient and
+permission alone is not sufficient. Student-owned endpoints must be covered by the
+authorization matrix test (student-owner allowed, student-other denied).
 
 Note: `Forms.Manage` and `Workflows.Manage` are assigned to GraduateStaff because they
 concern forms and processes, not student data. See "Assumptions to confirm".

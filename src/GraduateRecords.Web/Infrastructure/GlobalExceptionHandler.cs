@@ -14,8 +14,8 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         var correlationId = CorrelationIdMiddleware.GetCorrelationId(httpContext);
 
         logger.LogError(
-            exception,
-            "Unhandled exception. CorrelationId={CorrelationId}",
+            "Unhandled exception {ExceptionType}. CorrelationId={CorrelationId}",
+            exception.GetType().FullName,
             correlationId);
 
         httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;

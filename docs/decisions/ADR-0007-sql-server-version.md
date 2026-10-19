@@ -94,9 +94,12 @@ reliable scheduled maintenance, and the same behavior in development and product
 5.1 `DataJson` is stored as `nvarchar(max)` with an `ISJSON` check constraint in the
     first release. The native `json` data type and JSON indexes of SQL Server 2025
     are not adopted yet.
-5.2 Frequently filtered or sorted dynamic fields are exposed through indexed computed
-    columns using `JSON_VALUE`, or promoted to relational columns (decided per field in
-    the submissions/reporting ADR).
+5.2 Frequently filtered or sorted dynamic fields are exposed through the derived
+    `SubmissionFieldValue` projection (AGENTS §8, ARCHITECTURE §14), not through
+    per-form or dynamically created computed columns. Relational columns are used for
+    fixed system-level fields; rare ad-hoc queries may use `JSON_VALUE`/`OPENJSON`
+    in Infrastructure only. Per-form tables, per-form columns and dynamically created
+    computed columns are forbidden.
 5.3 The native `json` type is re-evaluated in Phase 5 (JSON reporting optimization)
     with a benchmark on realistic data volume, and adopted only if it provides a
     measurable benefit and EF Core support is verified.

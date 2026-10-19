@@ -30,13 +30,11 @@ public sealed class HealthEndpointTests
         var response = await _client.GetAsync("/health/ready");
         var body = await response.Content.ReadAsStringAsync();
 
-        Assert.True(
-            response.StatusCode is HttpStatusCode.OK or HttpStatusCode.ServiceUnavailable,
-            $"Unexpected status {(int)response.StatusCode}");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
 
         using var document = JsonDocument.Parse(body);
         Assert.True(document.RootElement.TryGetProperty("status", out var status));
-        Assert.Contains(status.GetString(), ["Healthy", "Degraded", "Unhealthy"], StringComparer.Ordinal);
+        Assert.Equal("Unhealthy", status.GetString());
         Assert.Single(document.RootElement.EnumerateObject());
         AssertDoesNotLeakSecrets(body);
     }

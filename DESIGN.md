@@ -29,8 +29,8 @@ Then: treat output as guidance and adapt it to Razor + Tailwind v4 + this docume
 
 ## 4. Typography
 - **Vazirmatn**, self-hosted woff2, `font-display: swap`, fallback `Tahoma, system-ui, sans-serif`. Tabular numerals in tables and IDs.
-- Scale: page title `text-2xl font-bold`; section `text-lg font-semibold`; body `text-base leading-7`; dense/table `text-sm leading-6`; caption `text-xs`. Minimum 14 px for interactive labels.
-- Persian: no letter-spacing, no italics, no uppercase logic, weights 400/500/700 only, keep ZWNJ, reading line length ≤ 70 characters.
+- Scale: page title `text-2xl font-bold`; section `text-lg font-medium`; body `text-base leading-7`; dense/table `text-sm leading-6`; caption `text-xs`. Minimum 14 px for interactive labels.
+- Persian: no letter-spacing, no italics, no uppercase logic, weights 400/500/700 only (`font-normal` / `font-medium` / `font-bold`); keep ZWNJ, reading line length ≤ 70 characters.
 - Digits: Persian digits in display text and dates; identifiers use `dir="ltr"` + tabular numerals.
 
 ## 5. Spacing, radius, shadows, borders

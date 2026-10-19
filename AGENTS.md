@@ -3,7 +3,7 @@
 Project: **Graduate Student Electronic Records System** (internal university application, Persian/RTL-first).
 Read this file completely before changing anything. Then read `ARCHITECTURE.md`. Read `DESIGN.md` before UI work. Read `docs/decisions/` for Accepted ADRs.
 These rules override your defaults. If a task conflicts with them, STOP and ask. Never deviate silently.
-Baseline status: this document, `ARCHITECTURE.md`, `DESIGN.md`, `OPENCODE-MASTER-INSTRUCTIONS.md` and `ROADMAP.md` form ONE system. If you find a contradiction, report it. Do not pick a side.
+Baseline status: this document, `ARCHITECTURE.md`, `DESIGN.md`, `OPENCODE-MASTER-INSTRUCTIONS.md` and `ROADMAP.md` form ONE system. `AGENTS.md` defines the implementation constraints and wins on rules; `ARCHITECTURE.md` defines concepts and flows. Clearly obsolete, duplicated or superseded text may be reconciled once the intended decision is established from the surrounding documents. An unresolved business/domain contradiction that the documents do not settle must be reported as `REQUIRES DECISION`, never guessed. Security requirements are never weakened to remove a contradiction.
 
 ## 0. Locked stack
 

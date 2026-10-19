@@ -42,8 +42,12 @@ SMS OTP sent through the Melipayamak gateway.
 
 ### 3. Students (just-in-time provisioning)
 3.1 After a successful SSO login, if no local user exists for the National ID,
-    the system queries Sama by National ID
-    (`GetStudentPersonInfoListByNationalCode`).
+    the system may perform a bounded first-provisioning directory lookup in Sama
+    by National ID (`GetStudentPersonInfoListByNationalCode`). This lookup is a
+    profile/provisioning concern, not an authentication concern: authentication
+    itself never calls Sama (ADR-0001 rule 15, AGENTS §12), and the lookup happens
+    only after SSO authentication has succeeded. A known (already provisioned)
+    student is never blocked from signing in by a Sama outage.
 3.2 A user with role Student is created only if at least one returned record has
     `StudyLevel.IsPostGraduate = true`. Otherwise no user is created, access is
     denied with a friendly message, and the denial is audited.
@@ -73,8 +77,10 @@ Rules:
     successful sync time is stored (`LastSyncedAt`, `LastSyncStatus`,
     `LastSyncError`). An optional maximum staleness period may be configured
     later; it is not implemented in the first release.
-4.5 Eligibility is re-evaluated at each SSO login when Sama is reachable, and by
-    a periodic background synchronization.
+4.5 Eligibility is refreshed by the periodic background synchronization and by a
+    bounded post-authentication inline attempt (AGENTS §12), never as a blocking
+    part of the sign-in path. Authentication never calls Sama; a Sama outage does
+    not prevent a known student from signing in.
 
 ### 5. Sama integration (rules for this ADR; details in ADR-0003)
 5.1 Use the REST endpoint of the Sama services over HTTPS or a closed internal
@@ -149,9 +155,9 @@ token, no password and no unmasked phone number.
   from policy) -> send OTP -> verify -> active.
 - Sama down: friendly message, audit.
 
-**Subsequent login:** SSO callback -> user found -> IsActive? -> refresh
-eligibility from Sama if reachable (otherwise last known) -> IsEligible? ->
-PhoneVerified? -> sign in.
+**Subsequent login:** SSO callback -> user found -> IsActive? -> IsEligible?
+(last known local value; Sama is refreshed only after sign-in) -> PhoneVerified?
+-> sign in. Sama availability never gates this path for a known student.
 
 **Staff first login:** SSO callback -> user created by admin exists -> PhoneVerified?
 (OTP if not) -> sign in.

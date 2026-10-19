@@ -17,6 +17,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\GraduateRecords.Infrastructure\GraduateRecords.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\GraduateRecords.Domain\GraduateRecords.Domain.csproj" />
     <ProjectReference Include="..\..\src\GraduateRecords.Application\GraduateRecords.Application.csproj" />
   </ItemGroup>

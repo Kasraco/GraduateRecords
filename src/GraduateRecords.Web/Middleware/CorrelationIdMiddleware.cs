@@ -39,7 +39,8 @@ public sealed class CorrelationIdMiddleware(RequestDelegate next)
             && !string.IsNullOrWhiteSpace(incoming))
         {
             var candidate = incoming.ToString().Trim();
-            if (candidate.Length <= 128 && candidate.All(static c => char.IsLetterOrDigit(c) || c is '-' or '_'))
+            // Opaque and header-injection-safe; never echoed into a response unencoded.
+            if (candidate.Length <= 128 && candidate.All(static c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
             {
                 return candidate;
             }

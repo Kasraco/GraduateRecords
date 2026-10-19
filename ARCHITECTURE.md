@@ -1,6 +1,6 @@
 # ARCHITECTURE.md
 
-Companion documents: `AGENTS.md` (rules), `DESIGN.md` (UI), `OPENCODE-MASTER-INSTRUCTIONS.md` (agent workflow), `ROADMAP.md`, `docs/decisions/` (ADRs). All five documents form one system. If they disagree, `AGENTS.md` wins for rules, and the disagreement is a defect to report.
+Companion documents: `AGENTS.md` (rules), `DESIGN.md` (UI), `OPENCODE-MASTER-INSTRUCTIONS.md` (agent workflow), `ROADMAP.md`, `docs/decisions/` (ADRs). All five documents form one system. `AGENTS.md` defines the implementation constraints and wins on rules; this document defines concepts and flows. Clearly obsolete, duplicated or superseded text may be reconciled once the intended decision is established from the surrounding documents. An unresolved business/domain contradiction that the documents do not settle must be reported as `REQUIRES DECISION`, never guessed. Security requirements are never weakened to remove a contradiction.
 
 ## 1. System context
 
@@ -148,7 +148,7 @@ Not v1 because no confirmed business requirement and no confirmed data source ex
 
 ## 6. Form assignment (v1)
 
-Rule dimensions: `All, Faculty, Department, Program, EntryYear, AcademicStatus, Student`. A student is eligible if ANY rule matches (OR), the window is open, the limit is not reached, the version is Published (not Retired), and eligibility policy per ADR-0005 passes. Evaluated server-side in `GetAvailableForms` and re-checked in `StartSubmission` and final submit. AND/NOT groups are Phase 6.
+Rule dimensions: `All, Faculty, Department, Program, EntryYear, AcademicStatus, Student`. A student is eligible if ANY rule matches (OR), the window is open, the limit is not reached, the version is Published (not Retired), and eligibility policy per ADR-0005 passes. Evaluated server-side in `GetAvailableForms` and re-checked in `StartSubmission` only. Retirement and status are checked when *starting* work; an existing submission pinned to a later-Retired version keeps working (editing drafts, saving, final submit, resubmit, workflow) per AGENTS §7 and ARCHITECTURE §5.2, so final submit never re-checks the form version's Published status. AND/NOT groups are Phase 6.
 
 ## 7. Submissions, revisions, projection
 

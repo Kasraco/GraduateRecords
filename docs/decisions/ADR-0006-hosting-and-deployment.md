@@ -80,9 +80,12 @@ Facts from the project owner:
     redirect URIs). Production uses its own client. A Development secret must never
     work against Production.
 3.4 In Development, Sama and the SMS gateway are replaced by stub implementations
-    behind the same interfaces unless a Sama test instance is provided. The OTP
-    stub may write the code to the console only when the environment is Development.
-    This behavior is disabled by environment check in all other environments.
+    behind the same interfaces unless a Sama test instance is provided. A
+    development-only OTP delivery/testing mechanism (for example an in-memory test
+    provider or a developer inbox surfaced in the UI) is permitted, but the OTP value
+    must never be written to normal application logs or the console logger, matching
+    ADR-0002 rule 6.8. Any such mechanism is disabled by environment check outside
+    Development.
 3.5 The Production environment name is `Production`. Developer exception pages and
     detailed errors are disabled. Users see only generic Persian error pages.
 
