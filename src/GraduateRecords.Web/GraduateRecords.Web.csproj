@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>GraduateRecords.Web</RootNamespace>
+    <AssemblyName>GraduateRecords.Web</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GraduateRecords.Application\GraduateRecords.Application.csproj" />
+    <ProjectReference Include="..\GraduateRecords.Infrastructure\GraduateRecords.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

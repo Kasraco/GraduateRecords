@@ -3,6 +3,14 @@
 - **Status:** Accepted
 - **Date:** 2026-10-18
 - **Deciders:** Project Owner
+- **Related documents/ADRs:** ADR-0006 (hosting and deployment), ADR-0002 (OTP and provisioning), future ADR on dynamic forms/submissions (`DataJson`), future ADR on reporting
+
+## Context
+The project owner states that university IT normally installs the latest SQL Server, currently SQL Server 2025, in the Enterprise edition, on a new installation. SQL Server Agent and Full-Text Search are available. The instance server collation is set to Persian/Arabic at install time. The university has no at-rest encryption requirement. Development uses a self-signed server certificate; production uses a valid certificate. The developer can install a matching Developer edition locally.
+
+The application needs: Persian text handling, JSON querying for dynamic form data, reliable scheduled maintenance, and the same behavior in development and production.
+- **Date:** 2026-10-18
+- **Deciders:** Project Owner
 - **Related documents/ADRs:** ADR-0006 (hosting and deployment), ADR-0002 (OTP and
   provisioning), future ADR on dynamic forms/submissions (`DataJson`), future ADR on
   reporting

@@ -1,0 +1,84 @@
+@import "tailwindcss";
+@source "../../Views";
+@source "../../Areas";
+@source "../../UI";
+@source "../../wwwroot/js";
+
+:root {
+  --radius: 0.5rem;
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --primary: #1E40AF;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #475569;
+  --accent: #E0E7FF;
+  --accent-foreground: #1E3A8A;
+  --destructive: #B91C1C;
+  --destructive-foreground: #FFFFFF;
+  --success: #15803D;
+  --success-soft: #DCFCE7;
+  --warning: #B45309;
+  --warning-soft: #FEF3C7;
+  --info: #0369A1;
+  --info-soft: #E0F2FE;
+  --border: #CBD5E1;
+  --input: #94A3B8;
+  --ring: #1E40AF;
+}
+
+@theme inline {
+  --font-sans: "Vazirmatn", Tahoma, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+}
+
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/vazirmatn/Vazirmatn-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}

@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>GraduateRecords.Infrastructure</RootNamespace>
+    <AssemblyName>GraduateRecords.Infrastructure</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GraduateRecords.Application\GraduateRecords.Application.csproj" />
+    <ProjectReference Include="..\GraduateRecords.Domain\GraduateRecords.Domain.csproj" />
+  </ItemGroup>
+</Project>

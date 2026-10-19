@@ -1,0 +1,11 @@
+﻿@{
+    ViewData["Title"] = "خطا";
+    Layout = "_Layout";
+    var correlationId = ViewData["CorrelationId"] as string ?? "—";
+}
+
+<section class="space-y-3" role="alert">
+    <h1 class="text-2xl font-bold text-foreground">خطا</h1>
+    <p class="text-base leading-7">خطایی رخ داده است.</p>
+    <p class="text-base leading-7">کد پیگیری: <span dir="ltr">@correlationId</span></p>
+</section>

@@ -1,0 +1,22 @@
+﻿<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] ?? "سامانه پرونده الکترونیک تحصیلات تکمیلی")</title>
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+</head>
+<body class="min-h-screen bg-background text-foreground font-sans antialiased">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground">
+        پرش به محتوا
+    </a>
+    <header class="border-b border-border bg-card">
+        <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+            <p class="text-lg font-semibold text-foreground">سامانه پرونده الکترونیک تحصیلات تکمیلی</p>
+        </div>
+    </header>
+    <main id="main-content" class="mx-auto max-w-5xl px-4 py-8">
+        @RenderBody()
+    </main>
+</body>
+</html>

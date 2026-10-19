@@ -89,3 +89,16 @@ Thumbs.db
 
 # VS Code (optional but recommended)
 .vscode/
+
+# Node / Tailwind
+**/node_modules/
+src/GraduateRecords.Web/wwwroot/css/app.css
+
+# Local runtime data (file storage probe / future uploads)
+.data/
+logs/
+
+# User secrets / env
+*.env
+*.env.*
+appsettings.*.local.json

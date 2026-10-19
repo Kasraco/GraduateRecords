@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>GraduateRecords.Application</RootNamespace>
+    <AssemblyName>GraduateRecords.Application</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GraduateRecords.Domain\GraduateRecords.Domain.csproj" />
+  </ItemGroup>
+</Project>

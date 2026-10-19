@@ -3,6 +3,16 @@
 - **Status:** Accepted
 - **Date:** 2026-10-18
 - **Deciders:** Project Owner
+- **Related documents/ADRs:** ADR-0001 (authentication), ADR-0002 (deactivation), ADR-0006 (hosting; section 4.5 is superseded by this ADR), ADR-0007 (SQL Server)
+
+## Context
+ASP.NET Core Data Protection encrypts and signs authentication cookies, antiforgery tokens and TempData. Its keys must survive application restarts and redeployments, and must be protected at rest.
+
+Facts: one application server, no second server planned. The IIS application pool uses the default pool identity (no domain service account). University IT can issue a certificate to protect the keys. The university has no session or key-rotation policy, so ASP.NET Core defaults are used where sensible. Azure Key Vault is not available (on-premises hosting, ADR-0006).
+
+Important IIS fact: by default the Data Protection "application discriminator" is
+- **Date:** 2026-10-18
+- **Deciders:** Project Owner
 - **Related documents/ADRs:** ADR-0001 (authentication), ADR-0002 (deactivation),
   ADR-0006 (hosting; section 4.5 is superseded by this ADR), ADR-0007 (SQL Server)
 

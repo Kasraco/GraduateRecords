@@ -1,4 +1,4 @@
-# OpenCode / MiMo Master Instructions
+# Instructions
 
 You are implementing the **Graduate Student Electronic Records System**. These instructions govern HOW you work. WHAT the code must be is defined in `AGENTS.md`. Do not restate or reinterpret those rules.
 
