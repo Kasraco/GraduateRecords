@@ -1,0 +1,14 @@
+@{
+    ViewData["Title"] = "ورود ناموفق";
+    Layout = "_Layout";
+}
+
+<section class="space-y-3" role="alert">
+    <h1 class="text-2xl font-bold text-foreground">ورود ناموفق</h1>
+    <p class="text-base leading-7">
+        ورود شما انجام نشد. اگر حساب شما در این سیستم تعریف نشده است، لطفاً با مدیر امور آموزش تحصیلات تکمیلی تماس بگیرید.
+    </p>
+    <p class="text-base leading-7">
+        <a class="text-primary underline underline-offset-4" asp-area="" asp-controller="Account" asp-action="Login">تلاش دوباره برای ورود</a>
+    </p>
+</section>
