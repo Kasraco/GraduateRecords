@@ -58,8 +58,15 @@ public sealed class DependencyRulesTests
     [Fact]
     public void Web_controllers_must_not_depend_on_Infrastructure()
     {
+        // AGENTS §2.2: the ONE controller allowed to touch Infrastructure is
+        // AccountController (ASP.NET Identity sign-in/sign-out plumbing); every
+        // other controller goes through Application handlers only.
+        // NOTE: conditions evaluate in written order (And binds before Or), so the
+        // exclusion must come first: (!AccountController AND Controllers) OR Areas.
         var result = Types.InAssembly(typeof(Web.Controllers.HomeController).Assembly)
             .That()
+            .DoNotHaveName("AccountController")
+            .And()
             .ResideInNamespace("GraduateRecords.Web.Controllers")
             .Or()
             .ResideInNamespaceStartingWith("GraduateRecords.Web.Areas")
@@ -73,9 +80,9 @@ public sealed class DependencyRulesTests
     [Fact]
     public void Web_to_Infrastructure_is_limited_to_the_composition_root()
     {
-        // AGENTS §2.2 permits Web → Infrastructure only for Program.cs composition and,
-        // later, ASP.NET Identity plumbing inside AccountController. AccountController
-        // does not exist yet.
+        // AGENTS §2.2 permits Web → Infrastructure only for Program.cs composition
+        // and ASP.NET Identity plumbing inside AccountController (see the sibling
+        // test above for the controller-namespace rule).
         var result = Types.InAssembly(typeof(Web.Controllers.HomeController).Assembly)
             .That()
             .ResideInNamespaceStartingWith("GraduateRecords.Web")

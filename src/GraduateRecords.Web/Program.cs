@@ -1,12 +1,17 @@
+using System.Threading.RateLimiting;
 using GraduateRecords.Infrastructure;
 using GraduateRecords.Infrastructure.Logging;
+using GraduateRecords.Web.Controllers;
 using GraduateRecords.Web.Infrastructure;
 using GraduateRecords.Web.Middleware;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Authorization;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Core;
 
@@ -19,9 +24,11 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.En
 
 builder.Host.UseSerilog((context, services, configuration) =>
 {
+    // Deliberately NOT using .ReadFrom.Services(services): InjectedLoggerSettings adds
+    // every DI-registered ILogEventSink, and the explicit loop below does the same —
+    // together they duplicated each sink (every log event was emitted twice).
     var inner = new LoggerConfiguration()
         .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services)
         .Enrich.FromLogContext()
         .Enrich.WithProperty("Application", "GraduateRecords");
 
@@ -37,25 +44,68 @@ builder.Host.UseSerilog((context, services, configuration) =>
         .WriteTo.Sink(new SafeLogSink(inner.CreateLogger()));
 });
 
-// Phase 0 has no sign-in endpoint or cookie issuer. Phase 1A adds Identity/SSO.
-builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
-    .AddCookie(IdentityConstants.ApplicationScheme, options =>
+// ADR-0001/0002/0008: local Identity + university SSO + application cookie.
+// Key-ring persistence in the database (ADR-0008 §1) and certificate encryption
+// at rest (§2) are delivered by their own infrastructure slice; development uses
+// the framework default key ring meanwhile.
+builder.Services.AddDataProtection()
+    .SetApplicationName("GraduateRecords")
+    .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
+
+builder.Services.AddIdentityAuthentication(builder.Configuration);
+builder.Services.AddQueryHandlers(typeof(GraduateRecords.Application.AssemblyMarker).Assembly);
+
+// OIDC event plumbing lives on AccountController (AGENTS §2.2 allows the external
+// login callback there); Program.cs only composes it.
+// MUST be registered under the scheme's options name: the handler resolves the
+// named OpenIdConnectOptions, and a default-named callback would never run.
+// OnTicketReceived (not OnTokenValidated) is the .NET 10 event that runs after
+// the userinfo claims carrying the National ID are merged onto the principal.
+builder.Services.PostConfigure<OpenIdConnectOptions>(
+    OpenIdConnectDefaults.AuthenticationScheme,
+    options =>
+{
+    options.Events ??= new OpenIdConnectEvents();
+    options.Events.OnTicketReceived = AccountController.OnTicketReceivedAsync;
+    options.Events.OnRemoteFailure = AccountController.OnRemoteFailureAsync;
+    options.SignedOutRedirectUri = AccountController.LoggedOutPath;
+});
+
+// ADR-0008 §5.4: antiforgery uses Data Protection and a project-specific cookie name.
+builder.Services.AddAntiforgery(options => options.Cookie.Name = "GraduateRecords.Antiforgery");
+
+// AGENTS §18: built-in rate limiting on the login endpoint, per client IP
+// (owner decision: 10 attempts per minute).
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, _) =>
     {
-        options.Cookie.Name = "GraduateRecords.Auth";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-        options.Events.OnRedirectToLogin = context =>
+        context.HttpContext.Response.ContentType = "text/html; charset=utf-8";
+        await context.HttpContext.Response.WriteAsync(
+            "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\"><head><meta charset=\"utf-8\" />" +
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />" +
+            "<title>محدودیت تعداد درخواست</title></head>" +
+            "<body class=\"min-h-screen bg-background text-foreground\"><main class=\"mx-auto max-w-xl p-6\">" +
+            "<h1 class=\"text-2xl font-bold\">محدودیت تعداد درخواست</h1>" +
+            "<p class=\"mt-4 text-base leading-7\">تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی بعد دوباره تلاش کنید.</p>" +
+            "</main></body></html>");
+    };
+
+    options.AddPolicy<string>(RateLimitPolicies.Login, context =>
+    {
+        var settings = context.RequestServices
+            .GetRequiredService<IOptions<GraduateRecords.Infrastructure.Options.IdentitySecuritySettings>>().Value;
+        var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return Task.CompletedTask;
-        };
-        options.Events.OnRedirectToAccessDenied = context =>
-        {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            return Task.CompletedTask;
-        };
+            PermitLimit = settings.LoginRateLimit.PermitsPerMinute,
+            Window = settings.LoginRateLimit.Window,
+            QueueLimit = 0,
+            AutoReplenishment = true,
+        });
     });
+});
 builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
@@ -84,6 +134,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

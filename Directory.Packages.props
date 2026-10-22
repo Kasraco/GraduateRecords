@@ -10,6 +10,16 @@
     <!-- Persistence (Infrastructure) — empty DbContext for readiness until Phase 1A -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.13" />
 
+    <!-- Identity (Infrastructure): ASP.NET Core Identity EF stores (AGENTS §20, ADR-0001) -->
+    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.13" />
+
+    <!-- OIDC handler; no longer in the .NET 10 shared framework. Required by Accepted
+         ADR-0001 (OAuth2/OIDC SSO). Microsoft first-party, MIT license. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.13" />
+
+    <!-- EF design-time tooling for migrations (build/dev time only) -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13" />
+
     <!-- Transitive pin: EF SqlServer pulls a vulnerable 9.x Pkcs; force patched 10.x -->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
 
