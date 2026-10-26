@@ -86,7 +86,7 @@ public sealed class IdentitySecuritySettingsTests
     {
         var settings = DecidedConfiguration();
         settings.Oidc.Authority = authority;
-        Assert.False(settings.IsValid());
+        Assert.False(settings.IsOidcConfigured);
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public sealed class IdentitySecuritySettingsTests
     {
         var settings = DecidedConfiguration();
         settings.Oidc.ClientSecret = string.Empty;
-        Assert.False(settings.IsValid());
+        Assert.False(settings.IsOidcConfigured);
     }
 
     [Fact]

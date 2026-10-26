@@ -15,12 +15,21 @@ public sealed class IdentitySecuritySettings
     /// <summary>Owner decision: the password policy never goes below 14 characters.</summary>
     public const int MinimumPasswordLength = 14;
 
-    public const string ValidationMessage =
-        "Identity configuration is invalid: lockout attempts and duration must be at least 1, " +
-        "password length must be at least 14, the cookie idle lifetime must be at least 1 minute " +
-        "and shorter than the absolute session cap, the login rate limit must be at least 1 permit " +
-        "per minute, and Identity:Oidc must contain a valid https Authority plus ClientId and ClientSecret.";
+//OLD KRB
 
+    // public const string ValidationMessage =
+    //     "Identity configuration is invalid: lockout attempts and duration must be at least 1, " +
+    //     "password length must be at least 14, the cookie idle lifetime must be at least 1 minute " +
+    //     "and shorter than the absolute session cap, the login rate limit must be at least 1 permit " +
+    //     "per minute, and Identity:Oidc must contain a valid https Authority plus ClientId and ClientSecret.";
+
+
+// Change KRB
+public const string ValidationMessage =
+    "Identity security configuration is invalid: lockout attempts and duration must be at least 1, " +
+    "password length must be at least 14, the cookie idle lifetime must be at least 1 minute " +
+    "and shorter than the absolute session cap, and the login rate limit must be at least 1 permit per minute.";
+/// ----------------
     public LockoutSettings Lockout { get; set; } = new();
 
     public PasswordSettings Password { get; set; } = new();
@@ -76,17 +85,35 @@ public sealed class IdentitySecuritySettings
 
     public TimeSpan IdleSessionLifetime => TimeSpan.FromMinutes(CookieLifetime.IdleMinutes);
 
-    public bool IsValid() =>
+//OLD -KRB
+    // public bool IsValid() =>
+    //     Lockout.MaxFailedAccessAttempts >= 1
+    //     && Lockout.LockoutDurationMinutes >= 1
+    //     && Password.RequiredLength >= MinimumPasswordLength
+    //     && CookieLifetime.IdleMinutes >= 1
+    //     && CookieLifetime.AbsoluteHours >= 1
+    //     && AbsoluteSessionCap >= IdleSessionLifetime
+    //     && LoginRateLimit.PermitsPerMinute >= 1
+    //     && IsValidAuthority(Oidc.Authority)
+    //     && !string.IsNullOrWhiteSpace(Oidc.ClientId)
+    //     && !string.IsNullOrWhiteSpace(Oidc.ClientSecret);
+
+
+// change krb
+   public bool IsValid() =>
         Lockout.MaxFailedAccessAttempts >= 1
         && Lockout.LockoutDurationMinutes >= 1
         && Password.RequiredLength >= MinimumPasswordLength
         && CookieLifetime.IdleMinutes >= 1
         && CookieLifetime.AbsoluteHours >= 1
-        && AbsoluteSessionCap >= IdleSessionLifetime
-        && LoginRateLimit.PermitsPerMinute >= 1
-        && IsValidAuthority(Oidc.Authority)
+        && AbsoluteSessionCap > IdleSessionLifetime
+        && LoginRateLimit.PermitsPerMinute >= 1;
+        
+    public bool IsOidcConfigured =>
+        IsValidAuthority(Oidc.Authority)
         && !string.IsNullOrWhiteSpace(Oidc.ClientId)
         && !string.IsNullOrWhiteSpace(Oidc.ClientSecret);
+// change krb
 
     private static bool IsValidAuthority(string authority) =>
         !string.IsNullOrWhiteSpace(authority)

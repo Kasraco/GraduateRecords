@@ -1,7 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <RootNamespace>GraduateRecords.Web</RootNamespace>
     <AssemblyName>GraduateRecords.Web</AssemblyName>
+    <UserSecretsId>8ae81d74-6adf-40cc-b44a-fc14832155e8</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Serilog.AspNetCore" />

@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using GraduateRecords.Infrastructure;
+using GraduateRecords.Infrastructure.Identity;
 using GraduateRecords.Infrastructure.Logging;
 using GraduateRecords.Web.Controllers;
 using GraduateRecords.Web.Infrastructure;
@@ -52,7 +53,18 @@ builder.Services.AddDataProtection()
     .SetApplicationName("GraduateRecords")
     .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
 
-builder.Services.AddIdentityAuthentication(builder.Configuration);
+//OLD KRB
+// For Change This Line Change in 
+//              GraduateRecords.Infrastructure/DependencyInjection.cs  and 
+//              GraduateRecords.Infrastructure/Options/IdentitySecuritySettings.cs and
+//              AccountController.cs
+
+// builder.Services.AddIdentityAuthentication(builder.Configuration);
+
+//Change KRB
+builder.Services.AddIdentityAuthentication(builder.Configuration,builder.Environment.EnvironmentName);
+//---------------
+
 builder.Services.AddQueryHandlers(typeof(GraduateRecords.Application.AssemblyMarker).Assembly);
 
 // OIDC event plumbing lives on AccountController (AGENTS §2.2 allows the external
@@ -137,6 +149,31 @@ app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Added KRB: Development-only local sign-in, active only while SSO is NOT configured
+if (app.Environment.IsDevelopment() &&
+    !app.Services.GetRequiredService<IOptions<GraduateRecords.Infrastructure.Options.IdentitySecuritySettings>>().Value.IsOidcConfigured)
+{
+    app.MapGet("/dev/login/{nationalId}", async (
+        string nationalId,
+        HttpContext http,
+        Microsoft.AspNetCore.Identity.UserManager<GraduateRecords.Infrastructure.Identity.ApplicationUser> users,
+        Microsoft.AspNetCore.Identity.SignInManager<GraduateRecords.Infrastructure.Identity.ApplicationUser> signIn,
+        GraduateRecords.Application.Common.Time.IClock clock) =>
+    {
+        if (!System.Net.IPAddress.IsLoopback(http.Connection.RemoteIpAddress ?? System.Net.IPAddress.None))
+            return Results.NotFound();
+
+        var user = await users.FindByNameAsync(nationalId);
+        if (user is null)
+            return Results.NotFound();
+
+        var props = new Microsoft.AspNetCore.Authentication.AuthenticationProperties();
+        AbsoluteSessionLifetime.Anchor(props, clock.UtcNow);
+        await signIn.SignInAsync(user, props);
+        return Results.Redirect("/");
+    }).AllowAnonymous();
+}
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {

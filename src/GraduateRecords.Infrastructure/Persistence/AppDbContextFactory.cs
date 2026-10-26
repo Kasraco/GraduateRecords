@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Configuration;
 
 namespace GraduateRecords.Infrastructure.Persistence;
 
@@ -15,8 +16,34 @@ namespace GraduateRecords.Infrastructure.Persistence;
 /// </summary>
 public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
-    public AppDbContext CreateDbContext(string[] args) =>
-        new(new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlServer("Server=(design-time);Database=GraduateRecords;TrustServerCertificate=False;")
-            .Options);
+    public AppDbContext CreateDbContext(string[] args) {
+            var basePath = Directory.GetCurrentDirectory();
+
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(basePath)
+                .AddJsonFile("appsettings.json", false)
+                .AddJsonFile("appsettings.Development.json", true)
+                .AddUserSecrets("8ae81d74-6adf-40cc-b44a-fc14832155e8")
+                .Build();
+
+            var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
+            optionsBuilder.UseSqlServer(configuration.GetConnectionString("Default"));
+
+            var context = new AppDbContext(optionsBuilder.Options);
+
+            try
+            {
+                var canConnect = context.Database.CanConnect();
+                Console.WriteLine($">>> Can connect to DB: {canConnect}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(">>> DB connection failed");
+                Console.WriteLine(ex.Message);
+                throw;
+            }
+
+            return context;
+
+    }
 }

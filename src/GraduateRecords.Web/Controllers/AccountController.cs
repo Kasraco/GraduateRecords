@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using GraduateRecords.Infrastructure.Options;
+using Microsoft.Extensions.Options;
 
 namespace GraduateRecords.Web.Controllers;
 
@@ -25,7 +27,9 @@ namespace GraduateRecords.Web.Controllers;
 /// </summary>
 public sealed class AccountController(
     IAuditWriter auditWriter,
-    IClock clock) : Controller
+    IClock clock,
+    // Added KRB
+    IOptions<IdentitySecuritySettings> identitySecuritySettings) : Controller
 {
     public const string LoginFailedPath = "/Account/LoginFailed";
     public const string LoggedOutPath = "/Account/LoggedOut";
@@ -39,13 +43,25 @@ public sealed class AccountController(
     [EnableRateLimiting(RateLimitPolicies.Login)]
     public IActionResult Login(string? returnUrl)
     {
+        // Added KRB
+
+    if (!identitySecuritySettings.Value.IsOidcConfigured)
+    {
+        return View("LoginFailed");
+    }
+        // ---------------
         var properties = new AuthenticationProperties
         {
             // Open redirect protection: only host-relative return URLs are honoured.
             RedirectUri = Url.IsLocalUrl(returnUrl) ? returnUrl : "/",
         };
 
+        //OLD KRB
+        // return Challenge(properties, OpenIdConnectDefaults.AuthenticationScheme);
+
+        // Change KRB
         return Challenge(properties, OpenIdConnectDefaults.AuthenticationScheme);
+        // --------------------
     }
 
     /// <summary>
@@ -88,8 +104,16 @@ public sealed class AccountController(
                 CorrelationId: CorrelationIdMiddleware.GetCorrelationId(HttpContext)),
             cancellationToken);
 
+
+        //OLD KRB
+        // var properties = new AuthenticationProperties { RedirectUri = LoggedOutPath };
+        // return SignOut(properties, IdentityConstants.ApplicationScheme, OpenIdConnectDefaults.AuthenticationScheme);
+
+        //Added KRB
         var properties = new AuthenticationProperties { RedirectUri = LoggedOutPath };
-        return SignOut(properties, IdentityConstants.ApplicationScheme, OpenIdConnectDefaults.AuthenticationScheme);
+        return identitySecuritySettings.Value.IsOidcConfigured
+            ? SignOut(properties, IdentityConstants.ApplicationScheme, OpenIdConnectDefaults.AuthenticationScheme)
+            : SignOut(properties, IdentityConstants.ApplicationScheme);
     }
 
     /// <summary>

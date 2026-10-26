@@ -18,4 +18,5 @@ public sealed class ApplicationUser : IdentityUser
 
     /// <summary>Full name as received from the university/SSO; display and audit snapshot only.</summary>
     public string FullName { get; set; } = string.Empty;
+    
 }
