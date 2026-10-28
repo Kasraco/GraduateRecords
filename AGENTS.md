@@ -201,6 +201,29 @@ Lifecycle: `Draft → (final submit) → Revision #1 → (return) → student ed
 - Admin operations (user/role/permission changes, publishing, reference data) require explicit permissions, are audited, and cannot grant a permission the actor lacks. The last active Administrator cannot be removed/disabled.
 - No custom password hashing, no home-made tokens, no authorization logic in JS.
 
+### Development SSO / Authentication Rule
+
+University SSO is the production authentication mechanism and MUST remain implemented using OpenID Connect Authorization Code Flow with PKCE.
+
+The real university IdP configuration may not be available during development. Therefore:
+
+- SSO configuration MUST NOT be required for the application to start in the `Development` environment.
+- Missing `Authority`, `ClientId`, or `ClientSecret` in `Development` MUST NOT cause application startup failure.
+- The application MUST be runnable locally without fake, placeholder, or hard-coded SSO credentials.
+- Do NOT create fake `ClientSecret`, `Authority`, or `ClientId` values merely to satisfy validation.
+- Do NOT add local username/password authentication for normal Student or Staff users as a workaround.
+- When SSO is not configured, initiating an SSO login MUST fail safely and display an appropriate local development/unavailable state instead of attempting an invalid OIDC challenge.
+- Development must still allow developers to run the application and inspect/test protected UI and authorization behavior through an explicit development-only authentication mechanism when needed.
+- Any development-only authentication mechanism MUST be restricted to the `Development` environment and MUST NOT be registered or usable in Production or Staging.
+- Development authentication MUST NOT weaken Production/Staging authentication configuration.
+- The development identity MUST use a controlled local test identity and MUST NOT represent or simulate a real university credential.
+- The development authentication mechanism MUST create an authenticated principal compatible with the normal Identity and authorization pipeline.
+- It MUST NOT bypass permission, ownership, or staff-scope authorization.
+- In non-Development environments, missing or invalid SSO configuration MUST fail fast at application startup.
+- Production and Staging MUST use the real university SSO configuration and MUST remain fail-closed.
+
+SSO implementation must therefore be separated from SSO deployment/configuration. The authentication code and integration points may be completed before the real university IdP credentials are available.
+
 ## 14. Audit
 
 - `IAuditWriter` writes to the append-only `AuditLog` (no update/delete code paths; the production DB login has INSERT/SELECT only).

@@ -74,30 +74,23 @@ public static class DependencyInjection
     public static IServiceCollection AddIdentityAuthentication(
         this IServiceCollection services,
         IConfiguration configuration,
-        // added krb
-        string environmentName
-        )
+        string environmentName)
     {
-        // Added KRB
-        var requireOidc =
-            !string.Equals(
-                environmentName,
-                Environments.Development,
-                StringComparison.OrdinalIgnoreCase);
-        // ------------------
+        // AGENTS §13 "Development SSO / Authentication Rule": SSO configuration is
+        // optional ONLY in Development. Production, Staging and Testing keep the
+        // fail-closed rule: missing or invalid OIDC configuration is a startup
+        // configuration error (non-Development startup fails fast).
+        var requireOidc = !string.Equals(environmentName, Environments.Development, StringComparison.OrdinalIgnoreCase);
 
-        // OLD KRB
-        // services.AddOptions<IdentitySecuritySettings>()
-        //     .Bind(configuration.GetSection(IdentitySecuritySettings.SectionName))
-        //     .Validate(static settings => settings.IsValid(), IdentitySecuritySettings.ValidationMessage)
-        //     .ValidateOnStart();
+        var validationMessage = requireOidc
+            ? IdentitySecuritySettings.ValidationMessage +
+              " In this environment Identity:Oidc must also contain a valid https Authority plus ClientId and ClientSecret."
+            : IdentitySecuritySettings.ValidationMessage;
 
-        // Change KRB
         services.AddOptions<IdentitySecuritySettings>()
-              .Bind(configuration.GetSection(IdentitySecuritySettings.SectionName))
-              .Validate(settings => settings.IsValid() && (!requireOidc || settings.IsOidcConfigured), IdentitySecuritySettings.ValidationMessage)
-              .ValidateOnStart();
-        //-----------------
+            .Bind(configuration.GetSection(IdentitySecuritySettings.SectionName))
+            .Validate(settings => settings.IsValid() && (!requireOidc || settings.IsOidcConfigured), validationMessage)
+            .ValidateOnStart();
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddHttpContextAccessor();
@@ -138,24 +131,24 @@ public static class DependencyInjection
                 options.Cookie.SameSite = SameSiteMode.Lax;
             });
 
-        // OLD KRB
-        //.AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, _ => { });
+        // AGENTS §13 "Development SSO / Authentication Rule": the university OIDC
+        // scheme is registered ONLY when real configuration exists. There are no
+        // placeholder/fake Authority, ClientId or ClientSecret values anywhere in
+        // the application, so Development starts cleanly without SSO while the
+        // Login/Logout guards (AccountController) never challenge the scheme that
+        // is not registered. Production, Staging and Testing still fail fast above.
+        var registeredOidc = new IdentitySecuritySettings();
+        configuration.GetSection(IdentitySecuritySettings.SectionName).Bind(registeredOidc);
 
-
-        // Added KRB: OIDC is registered only when configured
-        // Added KRB: always registered; placeholder options keep the handler constructible
-        // when SSO is not configured (Login/Logout are guarded by IsOidcConfigured).
-        authBuilder.AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, _ => { });
-        services.AddOptions<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme)
-            .Configure<IServiceProvider>((options, provider) => ConfigureOpenIdConnect(options, provider));        //---------------------------
-
+        if (registeredOidc.IsOidcConfigured)
+        {
+            authBuilder.AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, _ => { });
+            services.AddOptions<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme)
+                .Configure<IServiceProvider>((options, provider) => ConfigureOpenIdConnect(options, provider));
+        }
 
         services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
             .Configure<IServiceProvider>((options, provider) => ConfigureApplicationCookie(options, provider));
-
-        //OLD KRB
-        // services.AddOptions<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme)
-        //     .Configure<IServiceProvider>((options, provider) => ConfigureOpenIdConnect(options, provider));
 
         services.AddScoped<ILocalUserDirectory, LocalUserDirectory>();
         services.AddScoped<IAuditWriter, SerilogAuditWriter>();
@@ -181,12 +174,9 @@ public static class DependencyInjection
         options.LoginPath = "/Account/Login";
         options.Events.OnRedirectToLogin = context =>
         {
-            //OLD KRB
-            // context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            // return Task.CompletedTask;
-
-            // Added KRB
-            // Added KRB: browsers get the login page; non-browser clients keep a bare 401.
+            // Browsers follow the redirect to LoginPath (which renders the safe
+            // local unavailable state when SSO is not configured); non-browser
+            // clients keep a bare 401 instead of an HTML redirect.
             if (context.Request.Headers.Accept.ToString().Contains("text/html", StringComparison.OrdinalIgnoreCase))
             {
                 context.Response.Redirect(context.RedirectUri);
@@ -195,10 +185,8 @@ public static class DependencyInjection
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             }
+
             return Task.CompletedTask;
-            //-------------------
-
-
         };
         options.Events.OnRedirectToAccessDenied = context =>
         {
@@ -225,23 +213,14 @@ public static class DependencyInjection
 
     private static void ConfigureOpenIdConnect(OpenIdConnectOptions options, IServiceProvider provider)
     {
-        //KRB OLD
-        //var oidc = provider.GetRequiredService<IOptions<IdentitySecuritySettings>>().Value.Oidc;
-        // Added KRB: placeholders when SSO is not configured; never used because Login is guarded.
-        var settings = provider.GetRequiredService<IOptions<IdentitySecuritySettings>>().Value;
-        var oidc = settings.Oidc;
-        //------------------
+        // Reached only when real OIDC configuration exists (the scheme is not
+        // registered otherwise, AGENTS §13): values come from configuration and
+        // there is no fallback, placeholder or hard-coded credential.
+        var oidc = provider.GetRequiredService<IOptions<IdentitySecuritySettings>>().Value.Oidc;
 
-        //old krb
-        // options.Authority = oidc.Authority;
-        // options.ClientId = oidc.ClientId;
-        // options.ClientSecret = oidc.ClientSecret;
-
-        //Added KRB
-        options.Authority = settings.IsOidcConfigured ? oidc.Authority : "https://sso-not-configured.invalid";
-        options.ClientId = settings.IsOidcConfigured ? oidc.ClientId : "not-configured";
-        options.ClientSecret = settings.IsOidcConfigured ? oidc.ClientSecret : "not-configured";
-        //------------------
+        options.Authority = oidc.Authority;
+        options.ClientId = oidc.ClientId;
+        options.ClientSecret = oidc.ClientSecret;
         options.UsePkce = oidc.UsePkce;
 
         // ADR-0001 rule 1: Authorization Code flow; PKCE when the IdP supports it

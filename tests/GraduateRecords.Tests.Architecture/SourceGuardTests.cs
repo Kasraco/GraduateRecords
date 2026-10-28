@@ -145,6 +145,38 @@ public sealed class SourceGuardTests
             "tailwind.config.js is forbidden (CSS-first Tailwind v4):\n" + string.Join('\n', forbidden));
     }
 
+    [Fact]
+    public void Application_source_contains_no_fake_or_hard_coded_oidc_credentials()
+    {
+        // AGENTS §13 "Development SSO / Authentication Rule" / ARCHITECTURE §15:
+        // the application must not contain fake OIDC secrets or placeholder
+        // production credentials — only values read from configuration.
+        var placeholder = new Regex("(sso-not-configured|not-configured)", RegexOptions.CultureInvariant);
+        var hardCodedSecret = new Regex(@"ClientSecret\s*=\s*[""']", RegexOptions.CultureInvariant);
+
+        var violations = new List<string>();
+        foreach (var path in Enumerate(Path.Combine(RepoRoot, "src"), "*.cs"))
+        {
+            var lines = File.ReadAllLines(path);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (IsComment(lines[i]))
+                {
+                    continue;
+                }
+
+                if (placeholder.IsMatch(lines[i]) || hardCodedSecret.IsMatch(lines[i]))
+                {
+                    violations.Add($"{Relative(path)}:{i + 1}: {lines[i].Trim()}");
+                }
+            }
+        }
+
+        Assert.True(violations.Count == 0,
+            "Fake, placeholder or hard-coded OIDC credentials are forbidden (AGENTS §13):\n" +
+            string.Join('\n', violations));
+    }
+
     /// <summary>
     /// Matches a physical-direction utility after any number of variant prefixes
     /// (sm:, md:, lg:, hover:, focus:, dark:, stacked variants, ...). Logical

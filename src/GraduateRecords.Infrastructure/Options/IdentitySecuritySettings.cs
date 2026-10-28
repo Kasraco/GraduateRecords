@@ -15,21 +15,16 @@ public sealed class IdentitySecuritySettings
     /// <summary>Owner decision: the password policy never goes below 14 characters.</summary>
     public const int MinimumPasswordLength = 14;
 
-//OLD KRB
+    /// <summary>
+    /// Non-OIDC security values only. OIDC presence is validated separately and
+    /// environment-dependently (AGENTS §13 "Development SSO / Authentication Rule"):
+    /// required outside Development, optional in Development.
+    /// </summary>
+    public const string ValidationMessage =
+        "Identity security configuration is invalid: lockout attempts and duration must be at least 1, " +
+        "password length must be at least 14, the cookie idle lifetime must be at least 1 minute " +
+        "and shorter than the absolute session cap, and the login rate limit must be at least 1 permit per minute.";
 
-    // public const string ValidationMessage =
-    //     "Identity configuration is invalid: lockout attempts and duration must be at least 1, " +
-    //     "password length must be at least 14, the cookie idle lifetime must be at least 1 minute " +
-    //     "and shorter than the absolute session cap, the login rate limit must be at least 1 permit " +
-    //     "per minute, and Identity:Oidc must contain a valid https Authority plus ClientId and ClientSecret.";
-
-
-// Change KRB
-public const string ValidationMessage =
-    "Identity security configuration is invalid: lockout attempts and duration must be at least 1, " +
-    "password length must be at least 14, the cookie idle lifetime must be at least 1 minute " +
-    "and shorter than the absolute session cap, and the login rate limit must be at least 1 permit per minute.";
-/// ----------------
     public LockoutSettings Lockout { get; set; } = new();
 
     public PasswordSettings Password { get; set; } = new();
@@ -85,22 +80,13 @@ public const string ValidationMessage =
 
     public TimeSpan IdleSessionLifetime => TimeSpan.FromMinutes(CookieLifetime.IdleMinutes);
 
-//OLD -KRB
-    // public bool IsValid() =>
-    //     Lockout.MaxFailedAccessAttempts >= 1
-    //     && Lockout.LockoutDurationMinutes >= 1
-    //     && Password.RequiredLength >= MinimumPasswordLength
-    //     && CookieLifetime.IdleMinutes >= 1
-    //     && CookieLifetime.AbsoluteHours >= 1
-    //     && AbsoluteSessionCap >= IdleSessionLifetime
-    //     && LoginRateLimit.PermitsPerMinute >= 1
-    //     && IsValidAuthority(Oidc.Authority)
-    //     && !string.IsNullOrWhiteSpace(Oidc.ClientId)
-    //     && !string.IsNullOrWhiteSpace(Oidc.ClientSecret);
-
-
-// change krb
-   public bool IsValid() =>
+    /// <summary>
+    /// Numeric security settings only — OIDC is deliberately NOT part of this check.
+    /// Whether OIDC must be configured depends on the environment (AGENTS §13
+    /// "Development SSO / Authentication Rule") and is enforced by the startup
+    /// validation in <c>AddIdentityAuthentication</c>.
+    /// </summary>
+    public bool IsValid() =>
         Lockout.MaxFailedAccessAttempts >= 1
         && Lockout.LockoutDurationMinutes >= 1
         && Password.RequiredLength >= MinimumPasswordLength
@@ -108,12 +94,16 @@ public const string ValidationMessage =
         && CookieLifetime.AbsoluteHours >= 1
         && AbsoluteSessionCap > IdleSessionLifetime
         && LoginRateLimit.PermitsPerMinute >= 1;
-        
+
+    /// <summary>
+    /// True only when real SSO configuration exists (valid https Authority plus
+    /// ClientId and ClientSecret from configuration). Never true because of a
+    /// placeholder, hard-coded or fake value.
+    /// </summary>
     public bool IsOidcConfigured =>
         IsValidAuthority(Oidc.Authority)
         && !string.IsNullOrWhiteSpace(Oidc.ClientId)
         && !string.IsNullOrWhiteSpace(Oidc.ClientSecret);
-// change krb
 
     private static bool IsValidAuthority(string authority) =>
         !string.IsNullOrWhiteSpace(authority)

@@ -289,6 +289,38 @@ Exports: Excel via ClosedXML (row cap, formula-injection neutralization, sensiti
 
 Browser↔Web: HTTPS, cookie flags, antiforgery, CSP, rate limits. Web↔Application: ViewModels → explicit commands; identity from `ICurrentUser` only. Application↔data: ownership + scope + permission in handlers; parameterized EF; audit. Application↔files: `IFileStorage` + `IFileInspector` only. Application↔university API: `IStudentDirectory` only; payload validation; no secrets in logs. Client-side: untrusted-text rule (`textContent`, DOM APIs; no `innerHTML` for dynamic text). Admin plane: separate area, explicit permissions, audited, last-admin protection. Errors: global handler with correlation id. Config: secrets outside the repo; `ValidateOnStart`; durable Data Protection keys.
 
+### Authentication by Environment
+
+The target production authentication mechanism is the university OpenID Connect SSO.
+
+Authentication behavior is environment-dependent only at the external authentication entry point:
+
+**Production / Staging**
+
+University OIDC is required. Missing or invalid OIDC configuration is a startup configuration error. Authentication fails closed.
+
+**Development**
+
+OIDC remains implemented but its external configuration is optional until the real university IdP settings and credentials are available.
+
+The application must start without OIDC configuration.
+
+A development-only authentication mechanism MUST be provided when protected UI or authorization behavior needs to be exercised without the university IdP.
+
+The development mechanism:
+
+- exists only in the Development environment;
+- uses explicit development/test identities;
+- must not use or simulate university credentials;
+- must not introduce a normal local-password login feature;
+- must not be registered in Production or Staging;
+- must produce an authenticated application principal compatible with the normal authorization pipeline;
+- must not change production authorization policies, permissions, ownership checks, or staff-scope rules.
+
+This is a development infrastructure concern, not an alternative production authentication mechanism.
+
+The application must not contain fake OIDC secrets or placeholder production credentials.
+
 ## 16. Persian requirements
 
 - `<html lang="fa" dir="rtl">`, Vazirmatn self-hosted, Tailwind logical utilities.

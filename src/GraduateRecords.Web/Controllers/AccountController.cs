@@ -28,7 +28,6 @@ namespace GraduateRecords.Web.Controllers;
 public sealed class AccountController(
     IAuditWriter auditWriter,
     IClock clock,
-    // Added KRB
     IOptions<IdentitySecuritySettings> identitySecuritySettings) : Controller
 {
     public const string LoginFailedPath = "/Account/LoginFailed";
@@ -43,25 +42,22 @@ public sealed class AccountController(
     [EnableRateLimiting(RateLimitPolicies.Login)]
     public IActionResult Login(string? returnUrl)
     {
-        // Added KRB
+        // AGENTS §13 "Development SSO / Authentication Rule": with no SSO
+        // configuration (Development only — every other environment fails at
+        // startup), never issue an invalid OIDC challenge; show the existing safe
+        // local unavailable/failure state instead.
+        if (!identitySecuritySettings.Value.IsOidcConfigured)
+        {
+            return View("LoginFailed");
+        }
 
-    if (!identitySecuritySettings.Value.IsOidcConfigured)
-    {
-        return View("LoginFailed");
-    }
-        // ---------------
         var properties = new AuthenticationProperties
         {
             // Open redirect protection: only host-relative return URLs are honoured.
             RedirectUri = Url.IsLocalUrl(returnUrl) ? returnUrl : "/",
         };
 
-        //OLD KRB
-        // return Challenge(properties, OpenIdConnectDefaults.AuthenticationScheme);
-
-        // Change KRB
         return Challenge(properties, OpenIdConnectDefaults.AuthenticationScheme);
-        // --------------------
     }
 
     /// <summary>
@@ -105,11 +101,8 @@ public sealed class AccountController(
             cancellationToken);
 
 
-        //OLD KRB
-        // var properties = new AuthenticationProperties { RedirectUri = LoggedOutPath };
-        // return SignOut(properties, IdentityConstants.ApplicationScheme, OpenIdConnectDefaults.AuthenticationScheme);
-
-        //Added KRB
+        // AGENTS §13: only sign out of schemes that exist — the OIDC scheme is
+        // registered exactly when real SSO configuration is present.
         var properties = new AuthenticationProperties { RedirectUri = LoggedOutPath };
         return identitySecuritySettings.Value.IsOidcConfigured
             ? SignOut(properties, IdentityConstants.ApplicationScheme, OpenIdConnectDefaults.AuthenticationScheme)

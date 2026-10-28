@@ -49,6 +49,14 @@ public sealed class GraduateRecordsWebApplicationFactory : WebApplicationFactory
                 options => options.BackchannelHttpHandler = FakeIdP);
         });
 
+        // SSO settings are passed as HOST settings: they must be visible while
+        // Program.cs composes the authentication schemes (app configuration sources
+        // added here are applied later, after service registration).
+        builder.UseSetting("Identity:Oidc:Authority", FakeOpenIdProvider.Authority);
+        builder.UseSetting("Identity:Oidc:ClientId", FakeOpenIdProvider.ClientId);
+        builder.UseSetting("Identity:Oidc:ClientSecret", "integration-test-secret");
+        builder.UseSetting("Identity:Oidc:UsePkce", "true");
+
         builder.ConfigureAppConfiguration((_, config) =>
         {
             var fileRoot = Path.Combine(Path.GetTempPath(), "GraduateRecordsTests", "files");
@@ -71,10 +79,8 @@ public sealed class GraduateRecordsWebApplicationFactory : WebApplicationFactory
                 ["Identity:CookieLifetime:IdleMinutes"] = "30",
                 ["Identity:CookieLifetime:AbsoluteHours"] = "8",
                 ["Identity:LoginRateLimit:PermitsPerMinute"] = "10", // the decided value; tests isolate by client IP
-                ["Identity:Oidc:Authority"] = FakeOpenIdProvider.Authority,
-                ["Identity:Oidc:ClientId"] = FakeOpenIdProvider.ClientId,
-                ["Identity:Oidc:ClientSecret"] = "integration-test-secret",
-                ["Identity:Oidc:UsePkce"] = "true",
+                // OIDC is supplied as host settings above (see comment), so the
+                // scheme registration and the Login guard read one source of truth.
             });
         });
     }

@@ -1,14 +1,19 @@
 using System.Threading.RateLimiting;
+using GraduateRecords.Application.Common.Auditing;
+using GraduateRecords.Application.Common.Time;
+using GraduateRecords.Domain.Auditing;
 using GraduateRecords.Infrastructure;
 using GraduateRecords.Infrastructure.Identity;
 using GraduateRecords.Infrastructure.Logging;
 using GraduateRecords.Web.Controllers;
 using GraduateRecords.Web.Infrastructure;
 using GraduateRecords.Web.Middleware;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -53,17 +58,11 @@ builder.Services.AddDataProtection()
     .SetApplicationName("GraduateRecords")
     .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
 
-//OLD KRB
-// For Change This Line Change in 
-//              GraduateRecords.Infrastructure/DependencyInjection.cs  and 
-//              GraduateRecords.Infrastructure/Options/IdentitySecuritySettings.cs and
-//              AccountController.cs
-
-// builder.Services.AddIdentityAuthentication(builder.Configuration);
-
-//Change KRB
-builder.Services.AddIdentityAuthentication(builder.Configuration,builder.Environment.EnvironmentName);
-//---------------
+// ADR-0001/0002/0008: local Identity + university SSO + application cookie.
+// The environment decides whether SSO configuration is mandatory (AGENTS §13
+// "Development SSO / Authentication Rule"): Development may start without it,
+// every other environment fails fast at startup.
+builder.Services.AddIdentityAuthentication(builder.Configuration, builder.Environment.EnvironmentName);
 
 builder.Services.AddQueryHandlers(typeof(GraduateRecords.Application.AssemblyMarker).Assembly);
 
@@ -134,8 +133,17 @@ var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
+// Request-completion events fall back to Serilog's process-wide static Log when
+// RequestLoggingOptions.Logger is unset, which is wrong whenever more than one
+// host runs in the same process (the integration tests boot several hosts) and is
+// fragile in general. Bind the completion event to the logger this host installed
+// during builder.Build(), so each host writes its own request logs.
+var requestCompletionLogger = Serilog.Log.Logger;
 app.UseSerilogRequestLogging(options =>
-    options.MessageTemplate = "HTTP request completed {StatusCode} in {Elapsed:0.0000} ms");
+{
+    options.Logger = requestCompletionLogger;
+    options.MessageTemplate = "HTTP request completed {StatusCode} in {Elapsed:0.0000} ms";
+});
 app.UseExceptionHandler();
 
 if (!app.Environment.IsDevelopment())
@@ -150,27 +158,74 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Added KRB: Development-only local sign-in, active only while SSO is NOT configured
+// AGENTS §13 "Development SSO / Authentication Rule": an explicit,
+// development-only authentication mechanism for exercising protected UI without
+// the university IdP. It is registered ONLY in the Development environment and
+// only while real SSO configuration is absent, accepts ONLY the fixed controlled
+// test identity (never an arbitrary National ID, password or university
+// credential), signs in through the normal Identity pipeline and therefore
+// grants nothing extra: fallback policy, permission, ownership and staff-scope
+// checks are untouched.
 if (app.Environment.IsDevelopment() &&
     !app.Services.GetRequiredService<IOptions<GraduateRecords.Infrastructure.Options.IdentitySecuritySettings>>().Value.IsOidcConfigured)
 {
-    app.MapGet("/dev/login/{nationalId}", async (
-        string nationalId,
+    app.MapGet("/dev/login/{identityKey}", async (
+        string identityKey,
         HttpContext http,
-        Microsoft.AspNetCore.Identity.UserManager<GraduateRecords.Infrastructure.Identity.ApplicationUser> users,
-        Microsoft.AspNetCore.Identity.SignInManager<GraduateRecords.Infrastructure.Identity.ApplicationUser> signIn,
-        GraduateRecords.Application.Common.Time.IClock clock) =>
+        UserManager<ApplicationUser> users,
+        SignInManager<ApplicationUser> signIn,
+        IAuditWriter auditWriter,
+        IClock clock) =>
     {
-        if (!System.Net.IPAddress.IsLoopback(http.Connection.RemoteIpAddress ?? System.Net.IPAddress.None))
-            return Results.NotFound();
+        // Loopback callers only, and only the controlled development identity.
+        var isLoopback = System.Net.IPAddress.IsLoopback(
+            http.Connection.RemoteIpAddress ?? System.Net.IPAddress.None);
 
-        var user = await users.FindByNameAsync(nationalId);
+        if (!isLoopback ||
+            !string.Equals(identityKey, DevelopmentConfiguration.TestIdentityKey, StringComparison.Ordinal))
+        {
+            return Results.NotFound();
+        }
+
+        var user = await users.FindByNameAsync(DevelopmentConfiguration.TestIdentityUserName);
         if (user is null)
-            return Results.NotFound();
+        {
+            user = new ApplicationUser
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                UserName = DevelopmentConfiguration.TestIdentityUserName,
+                FullName = DevelopmentConfiguration.TestIdentityFullName,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+            };
 
-        var props = new Microsoft.AspNetCore.Authentication.AuthenticationProperties();
-        AbsoluteSessionLifetime.Anchor(props, clock.UtcNow);
-        await signIn.SignInAsync(user, props);
+            var created = await users.CreateAsync(user);
+            if (!created.Succeeded)
+            {
+                return Results.NotFound();
+            }
+        }
+
+        var properties = new AuthenticationProperties();
+        AbsoluteSessionLifetime.Anchor(properties, clock.UtcNow);
+        await signIn.SignInAsync(user, properties);
+
+        // Best-effort operational sign-in audit (AGENTS §14), like every session start.
+        await auditWriter.WriteAsync(
+            new AuditEntry(
+                clock.UtcNow,
+                user.Id,
+                user.FullName,
+                AuditActions.AuthenticationSignInSucceeded,
+                "User",
+                user.Id,
+                AuditResult.Success,
+                "ورود آزمایشی محیط توسعه",
+                DetailsJson: null,
+                IpAddress: http.Connection.RemoteIpAddress?.ToString(),
+                UserAgent: http.Request.Headers.UserAgent.ToString(),
+                CorrelationId: CorrelationIdMiddleware.GetCorrelationId(http)),
+            http.RequestAborted);
+
         return Results.Redirect("/");
     }).AllowAnonymous();
 }
