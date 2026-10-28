@@ -188,41 +188,122 @@ Lifecycle: `Draft → (final submit) → Revision #1 → (return) → student ed
 - API credentials come from secret configuration. Logs contain ids, status codes, durations and retry counts, never PII or payloads.
 
 ## 13. Authentication and authorization
+### 13.1 Formal authentication paths
 
-- ASP.NET Core Identity cookie authentication (model per ADR-0001/0002). Lockout enabled, password policy in `Infrastructure/Identity`, cookies `HttpOnly`, `Secure`, `SameSite=Lax`, sliding expiration with absolute cap, `SecurityStamp` revalidation ≤ 5 min.
-- Chain: Identity user → Role → Permission (role claim type `permission`) → Policy. Permissions are constants in `Application/Common/Security/Permissions.cs`. Controllers use `[HasPermission(Permissions.X)]`, backed by `PermissionPolicyProvider`/`PermissionHandler`. Never hard-code role names for security decisions.
-- **Authorization = Permission + Resource ownership + Staff scope**, all server-side:
-  1. permission attribute on the action;
-  2. in the handler: ownership (a student may touch only their own submission/document/profile);
-  3. in the handler: **staff scope**, via `ICurrentUser.StaffScope` and the shared extensions in `Application/Common/Security/ScopeExtensions.cs` (`WithinScope(...)` for queries and `CanAccess(...)` for by-id checks).
-- Staff scope policy is decided by ADR-0004. Until it is Accepted the default `StaffScope` resolves to `All`, but **every staff-facing query and every staff by-id handler MUST already call the scope extensions**, so changing the policy touches one place. A test with a restrictive fake scope must prove filtering.
-- Student → other student's resource, or staff → out-of-scope resource: return **NotFound**. Authenticated but missing permission: **Forbidden**.
-- Hidden UI is never authorization. Never trust ids, roles, status, version ids, owner ids, or step ids from the request.
-- Admin operations (user/role/permission changes, publishing, reference data) require explicit permissions, are audited, and cannot grant a permission the actor lacks. The last active Administrator cannot be removed/disabled.
-- No custom password hashing, no home-made tokens, no authorization logic in JS.
+The application has two formal authentication paths:
 
-### Development SSO / Authentication Rule
+1. University SSO using OIDC Authorization Code + PKCE.
+2. Local ASP.NET Core Identity username/password authentication.
 
-University SSO is the production authentication mechanism and MUST remain implemented using OpenID Connect Authorization Code Flow with PKCE.
+SSO is the primary authentication path.
 
-The real university IdP configuration may not be available during development. Therefore:
+Local authentication is a real product authentication path for eligible users. It is not a Development-only workaround.
 
-- SSO configuration MUST NOT be required for the application to start in the `Development` environment.
-- Missing `Authority`, `ClientId`, or `ClientSecret` in `Development` MUST NOT cause application startup failure.
-- The application MUST be runnable locally without fake, placeholder, or hard-coded SSO credentials.
-- Do NOT create fake `ClientSecret`, `Authority`, or `ClientId` values merely to satisfy validation.
-- Do NOT add local username/password authentication for normal Student or Staff users as a workaround.
-- When SSO is not configured, initiating an SSO login MUST fail safely and display an appropriate local development/unavailable state instead of attempting an invalid OIDC challenge.
-- Development must still allow developers to run the application and inspect/test protected UI and authorization behavior through an explicit development-only authentication mechanism when needed.
-- Any development-only authentication mechanism MUST be restricted to the `Development` environment and MUST NOT be registered or usable in Production or Staging.
-- Development authentication MUST NOT weaken Production/Staging authentication configuration.
-- The development identity MUST use a controlled local test identity and MUST NOT represent or simulate a real university credential.
-- The development authentication mechanism MUST create an authenticated principal compatible with the normal Identity and authorization pipeline.
-- It MUST NOT bypass permission, ownership, or staff-scope authorization.
-- In non-Development environments, missing or invalid SSO configuration MUST fail fast at application startup.
-- Production and Staging MUST use the real university SSO configuration and MUST remain fail-closed.
+### 13.2 Authentication matrix
 
-SSO implementation must therefore be separated from SSO deployment/configuration. The authentication code and integration points may be completed before the real university IdP credentials are available.
+| User type | SSO | Local |
+|---|---:|---:|
+| Student | YES | NO |
+| Staff | YES | YES |
+| Administrator | YES | YES |
+| Emergency/Break-glass Administrator | NO | YES |
+
+Students must remain SSO-only.
+
+Staff and Administrators may authenticate locally when they have an active authorized local account. This allows continued operation when the university SSO provider is unavailable.
+
+### 13.3 Authentication does not grant authorization
+
+Authentication method MUST NOT determine authorization.
+
+After either successful authentication path, the application MUST establish the same local `ApplicationUser` identity and apply the same:
+
+- Roles
+- Permissions
+- ownership rules
+- StaffScope restrictions
+
+Do not grant additional permissions to SSO users.
+
+Do not reduce permissions for locally authenticated users.
+
+The authentication method may be recorded for audit purposes only.
+
+### 13.4 Local account lifecycle
+
+Local accounts MUST NOT support public/self-service registration.
+
+Creation, activation, disabling, and administrative lifecycle operations MUST be restricted to authorized administrative functionality.
+
+Password management MUST use ASP.NET Core Identity's secure password hashing and lockout mechanisms.
+
+No default, shared, seeded, guessable, or hard-coded production passwords are permitted.
+
+Local credentials MUST never be logged.
+
+Password hashes, reset tokens, authentication tokens, client secrets, and other authentication secrets MUST never be written to application logs or audit records.
+
+### 13.5 SSO outage behavior
+
+An unavailable university SSO provider MUST NOT prevent an eligible Staff or Administrator with an active local account from using Local Login.
+
+Local authentication MUST NOT call or depend on the university SSO provider.
+
+The application MUST NOT silently fall back from SSO to Local Login without an explicit user action.
+
+The user must explicitly choose the authentication path.
+
+### 13.6 Break-glass
+
+Break-glass authentication is separate from normal Staff local authentication.
+
+Break-glass accounts are intended only for exceptional administrative recovery scenarios.
+
+They MUST NOT be used as the normal authentication mechanism for Staff.
+
+Break-glass access MUST remain tightly controlled, audited, and subject to the additional emergency security requirements defined by the applicable ADR.
+
+### 13.7 Development authentication
+
+Development authentication MUST NOT become a production authentication mechanism.
+
+The temporary Development-only `/dev/login` mechanism may be used only while the formal Local Authentication path is being implemented and tested.
+
+Once Local Authentication is implemented and covered by tests, `/dev/login` MUST be removed.
+
+Development may start without real university SSO configuration.
+
+Development SSO absence MUST NOT weaken authorization, ownership, StaffScope, or security rules.
+
+### 13.8 Environment configuration
+
+Production and Staging MUST fail closed when required OIDC configuration is missing or invalid.
+
+Testing MUST also validate the fail-closed behavior.
+
+No fake, placeholder, hard-coded, or synthetic OIDC credentials may be introduced.
+
+Development may run without configured OIDC.
+
+The Local Authentication path must remain independently usable for eligible users when OIDC is unavailable.
+
+### 13.9 Login and authentication security
+
+All existing authentication security requirements remain applicable to both authentication paths where relevant, including:
+
+- lockout
+- rate limiting
+- security stamp validation
+- secure authentication cookies
+- antiforgery protection for state-changing operations
+- audit logging
+- generic failure responses that do not disclose account existence
+- secure password handling
+- protection against credential stuffing and brute-force attacks
+
+The Local Login path MUST NOT bypass any authorization or security middleware.
+
+A successful Local Login MUST produce the same authorization-ready application principal as a successful SSO login.
 
 ## 14. Audit
 

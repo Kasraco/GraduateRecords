@@ -244,6 +244,24 @@ Example permissions: `students.view`, `students.view-national-id`, `students.syn
 - **Staff scope** (ADR-0004): `ICurrentUser.StaffScope` + `ScopeExtensions.WithinScope/CanAccess` used by every staff query and by-id handler from day one. The default resolves to `All` until the ADR is Accepted. A test with a restrictive fake scope is mandatory. Out-of-scope ⇒ NotFound.
 - Student vs another's resource ⇒ NotFound. Missing permission ⇒ Forbidden. `SecurityStamp` revalidation (≤ 5 min) makes revocation effective.
 
+### 10.x Authentication independence from authorization
+
+Authorization is independent of the authentication method.
+
+A user authenticated through University SSO and the same user authenticated through Local Identity authentication must resolve to the same local `ApplicationUser` and therefore receive the same Roles, Permissions, ownership constraints, and `StaffScope` restrictions.
+
+Authentication answers:
+
+> "Who has successfully authenticated?"
+
+Authorization answers:
+
+> "What is this authenticated user allowed to do?"
+
+The application must not grant additional permissions merely because a user authenticated through SSO, and it must not reduce permissions merely because the user authenticated locally.
+
+The authentication method may be recorded for audit and operational purposes, but it must not become an implicit authorization mechanism.
+
 ## 11. Audit
 
 Append-only `AuditLog`; production DB login has no UPDATE/DELETE. Business-change audit rows are saved in the same transaction as the change.
@@ -254,6 +272,21 @@ Append-only `AuditLog`; production DB login has no UPDATE/DELETE. Business-chang
 
 **Sensitive reads (fail-closed):** SR1 National ID reveal; SR2 staff full-profile view; SR3 document download/preview; SR4 staff opening another student's submission content; SR5 audit-log viewing and exports. **Not every read is sensitive.** Ordinary reads and ordinary operational events (e.g., login) are best-effort: failure is logged via Serilog and the request proceeds. An audit outage must not take down the whole application.
 Never in audit/logs: passwords, tokens, secrets, full National ID, full `DataJson`, file contents, raw stack traces, raw API payloads.
+
+### Authentication audit
+
+Authentication events must identify the authentication path when technically available.
+
+At minimum, the system must be able to distinguish:
+
+- University SSO authentication
+- Local username/password authentication
+- Break-glass authentication
+
+Authentication audit events must include the existing audit context and must not expose passwords, password hashes, tokens, client secrets, or other authentication secrets.
+
+Authentication method is an audit/observability attribute and must not be used as an implicit authorization rule.
+
 
 ## 12. Reference data
 
@@ -291,35 +324,59 @@ Browser↔Web: HTTPS, cookie flags, antiforgery, CSP, rate limits. Web↔Applica
 
 ### Authentication by Environment
 
-The target production authentication mechanism is the university OpenID Connect SSO.
+GraduateRecords supports two formal authentication paths:
 
-Authentication behavior is environment-dependent only at the external authentication entry point:
+1. **University SSO (OIDC Authorization Code + PKCE)** — the primary authentication path.
+2. **Local Identity authentication (username/password)** — a secondary, independently operable authentication path for authorized Staff and Administrator users.
 
-**Production / Staging**
+Authentication method must not change authorization semantics. After successful authentication, both paths establish the same local `ApplicationUser` identity and are subject to the same Roles, Permissions, ownership rules, and `StaffScope` restrictions.
 
-University OIDC is required. Missing or invalid OIDC configuration is a startup configuration error. Authentication fails closed.
+#### Authentication matrix
 
-**Development**
+| User type | University SSO | Local authentication |
+|---|---:|---:|
+| Student | Required | Not permitted |
+| Staff | Permitted | Permitted |
+| Administrator | Permitted | Permitted |
+| Emergency/Break-glass Administrator | Not required | Permitted |
 
-OIDC remains implemented but its external configuration is optional until the real university IdP settings and credentials are available.
+Students are SSO-only because their identity is university-managed and must remain tied to the university identity provider.
 
-The application must start without OIDC configuration.
+Staff and Administrators may use local authentication when SSO is unavailable or when local authentication is otherwise explicitly permitted. Local authentication is therefore a real product authentication path, not a Development-only workaround.
 
-A development-only authentication mechanism MUST be provided when protected UI or authorization behavior needs to be exercised without the university IdP.
+Local accounts are not self-registration accounts. Creation, activation, disabling, password reset, and other lifecycle operations must be performed through an authorized administrative workflow.
 
-The development mechanism:
+#### SSO failure and availability
 
-- exists only in the Development environment;
-- uses explicit development/test identities;
-- must not use or simulate university credentials;
-- must not introduce a normal local-password login feature;
-- must not be registered in Production or Staging;
-- must produce an authenticated application principal compatible with the normal authorization pipeline;
-- must not change production authorization policies, permissions, ownership checks, or staff-scope rules.
+Loss of availability of the university SSO provider must not prevent an authorized Staff or Administrator user with an active local account from authenticating locally.
 
-This is a development infrastructure concern, not an alternative production authentication mechanism.
+Local authentication must not depend on a successful request to the university identity provider.
 
-The application must not contain fake OIDC secrets or placeholder production credentials.
+SSO remains the primary authentication path when available; local authentication is the fallback/secondary path for eligible users.
+
+#### Break-glass authentication
+
+Break-glass access is separate from normal Staff local authentication.
+
+A break-glass account exists only for exceptional administrative recovery scenarios, such as loss of normal administrative authentication capability. It must not be treated as the normal local authentication mechanism for Staff.
+
+Break-glass access remains tightly controlled, audited, disabled by default where configuration permits, and subject to the project's additional emergency security requirements.
+
+#### Development authentication
+
+Development authentication must not introduce a third production authentication mechanism.
+
+Any existing Development-only authentication endpoint such as `/dev/login` is temporary scaffolding for development and testing. Once the formal Local Authentication path is implemented and tested, the Development-only login mechanism must be removed.
+
+Development must remain runnable without real university SSO configuration, but this must not weaken production or staging authentication behavior.
+
+#### Non-Development SSO configuration
+
+Production, Staging, and Testing environments must fail closed when required SSO configuration is missing or invalid.
+
+No fake, placeholder, hard-coded, or synthetic production OIDC credentials may be used.
+
+The presence or absence of SSO configuration must not disable the Local Authentication path for eligible users.
 
 ## 16. Persian requirements
 
