@@ -19,6 +19,14 @@ public sealed class FakeOpenIdProvider : HttpMessageHandler
 
     private readonly RSA _rsa = RSA.Create(2048);
     private int _disposed;
+    private int _requestCount;
+
+    /// <summary>
+    /// Number of requests the provider has served. Tests assert it does not
+    /// change during local login, proving the local path never contacts SSO
+    /// (ADR-0015 §10).
+    /// </summary>
+    public int RequestCount => Volatile.Read(ref _requestCount);
 
     /// <summary>The National ID claim returned by the userinfo endpoint.</summary>
     public string UserInfoNationalId { get; set; } = "0012345679";
@@ -31,6 +39,8 @@ public sealed class FakeOpenIdProvider : HttpMessageHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        Interlocked.Increment(ref _requestCount);
+
         switch (request.RequestUri!.AbsolutePath)
         {
             case "/.well-known/openid-configuration":

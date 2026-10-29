@@ -16,7 +16,7 @@ public sealed class SsoSignInHandlerTests
     [Fact]
     public async Task Known_user_with_valid_national_id_gets_a_ticket_without_audit_noise()
     {
-        var users = new FakeDirectory { User = new LocalUser("user-1", "کاربر آزمایشی") };
+        var users = new FakeDirectory { User = new LocalUser("user-1", "کاربر آزمایشی", LocalUserKind.Student) };
         var audit = new FakeAuditWriter();
         var handler = new SsoSignInHandler(users, audit, new FakeClock());
 
@@ -33,7 +33,7 @@ public sealed class SsoSignInHandlerTests
     [Fact]
     public async Task Persian_digit_claim_is_normalized_before_the_user_lookup()
     {
-        var users = new FakeDirectory { User = new LocalUser("user-1", "نام") };
+        var users = new FakeDirectory { User = new LocalUser("user-1", "نام", LocalUserKind.Staff) };
         var handler = new SsoSignInHandler(users, new FakeAuditWriter(), new FakeClock());
 
         var result = await handler.HandleAsync(Query("۰۰۱۲۳۴۵۶۷۹"));
@@ -49,7 +49,7 @@ public sealed class SsoSignInHandlerTests
     [InlineData("abc")]
     public async Task Invalid_national_id_claim_is_denied_and_audited_without_the_value(string? claim)
     {
-        var users = new FakeDirectory { User = new LocalUser("user-1", "نام") };
+        var users = new FakeDirectory { User = new LocalUser("user-1", "نام", LocalUserKind.Staff) };
         var audit = new FakeAuditWriter();
         var handler = new SsoSignInHandler(users, audit, new FakeClock());
 

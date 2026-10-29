@@ -149,10 +149,26 @@ public sealed class DevelopmentWithSsoTests(DevelopmentWithSsoWebApplicationFact
     : SsoConfiguredEnvironmentTests<DevelopmentWithSsoWebApplicationFactory>(factory)
 {
     [Fact]
-    public async Task Login_challenges_the_university_provider_when_configuration_exists()
+    public async Task Login_renders_the_authentication_choice_without_challenging_sso()
     {
         using var client = CreateClient(Factory);
         using var response = await client.GetAsync("/Account/Login");
+
+        // ADR-0015 §10 / AGENTS 13.5: the user explicitly chooses the path; the
+        // page renders both options instead of issuing an implicit SSO challenge.
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(response.Headers.Contains("Location"), "The choice page must not redirect.");
+
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("ورود از طریق سازمان دانشگاه", body, StringComparison.Ordinal);
+        Assert.Contains("ورود کارکنان و مدیران", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Requesting_sso_signin_challenges_the_university_provider()
+    {
+        using var client = CreateClient(Factory);
+        using var response = await client.GetAsync("/Account/SsoSignIn");
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.StartsWith(

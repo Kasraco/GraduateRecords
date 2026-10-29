@@ -1,0 +1,77 @@
+@model GraduateRecords.Web.Models.LocalLoginViewModel
+@{
+    ViewData["Title"] = "ورود به سامانه";
+    Layout = "_Layout";
+}
+
+<section class="mx-auto max-w-md space-y-6">
+    <h1 class="text-2xl font-bold text-foreground">ورود به سامانه</h1>
+
+    <div class="space-y-3 rounded-xl border border-border bg-card p-4 shadow-xs md:p-6">
+        <h2 class="text-lg font-medium text-foreground">ورود از طریق سازمان دانشگاه</h2>
+        @if (Model.SsoAvailable)
+        {
+            <p class="text-sm leading-6 text-muted-foreground">
+                دانشجویان، اعضای هیئت‌علمی و کارکنان با حساب سازمانی دانشگاه وارد می‌شوند.
+            </p>
+            <a class="inline-flex h-11 items-center rounded-md bg-primary px-4 text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+               asp-area=""
+               asp-controller="Account"
+               asp-action="SsoSignIn"
+               asp-route-returnUrl="@Model.ReturnUrl">
+                ورود با حساب سازمانی
+            </a>
+        }
+        else
+        {
+            <p class="text-sm leading-6 text-muted-foreground" role="status">
+                در حال حاضر امکان ورود از طریق سازمان دانشگاه فراهم نیست.
+            </p>
+        }
+    </div>
+
+    <div class="space-y-4 rounded-xl border border-border bg-card p-4 shadow-xs md:p-6">
+        <h2 class="text-lg font-medium text-foreground">ورود کارکنان و مدیران</h2>
+        <p class="text-sm leading-6 text-muted-foreground">
+            این روش ورود فقط برای کارکنان و مدیران سامانه است؛ دانشجویان تنها از طریق ورود سازمانی می‌توانند وارد شوند.
+        </p>
+
+        <form asp-area=""
+              asp-controller="Account"
+              asp-action="LocalLogin"
+              method="post"
+              class="space-y-4">
+            <input type="hidden" asp-for="ReturnUrl" />
+
+            <div asp-validation-summary="All" class="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive" role="alert"></div>
+
+            <div class="space-y-1">
+                <label asp-for="NationalId" class="block text-sm font-medium text-foreground">
+                    کد ملی <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(اجباری)</span>
+                </label>
+                <input asp-for="NationalId"
+                       dir="ltr"
+                       inputmode="numeric"
+                       autocomplete="username"
+                       placeholder="0012345679"
+                       class="h-11 w-full rounded-md border border-input bg-card px-3 text-end text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+                <span asp-validation-for="NationalId" class="text-sm text-destructive"></span>
+            </div>
+
+            <div class="space-y-1">
+                <label asp-for="Password" class="block text-sm font-medium text-foreground">
+                    گذرواژه <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(اجباری)</span>
+                </label>
+                <input asp-for="Password"
+                       type="password"
+                       autocomplete="current-password"
+                       class="h-11 w-full rounded-md border border-input bg-card px-3 text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+            </div>
+
+            <button type="submit"
+                    class="h-11 w-full rounded-md bg-primary px-4 text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                ورود
+            </button>
+        </form>
+    </div>
+</section>

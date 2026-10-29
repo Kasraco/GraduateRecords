@@ -4,10 +4,10 @@ namespace GraduateRecords.Infrastructure.Identity;
 
 /// <summary>
 /// Applies the decided security values to <see cref="IdentityOptions"/> (AGENTS §13).
-/// The break-glass password policy is length-only (minimum 14 characters, no
-/// composition rules) per the owner decision on ADR-0001 rule 12. Local password
-/// login stays disabled for students and staff (ADR-0001 rule 11); these options
-/// govern any password operation, including the future break-glass account.
+/// The password policy is length-only (minimum 14 characters, no composition
+/// rules) per the owner decision on ADR-0001 rule 12; since ADR-0015 it governs
+/// the local Staff/Administrator passwords as well as any future break-glass
+/// account. Local password login remains impossible for Students (ADR-0015 §6).
 /// </summary>
 public static class IdentityOptionsSetup
 {

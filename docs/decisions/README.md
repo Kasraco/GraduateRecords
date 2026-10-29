@@ -16,7 +16,7 @@ New package/project/abstraction; any item in `AGENTS.md §1`; any deviation from
 ## Index
 | ID | Title | Status | Needed before |
 |---|---|---|---|
-| ADR-0001 | Authentication model | Accepted  | Phase 1A |
+| ADR-0001 | Authentication model | Superseded by ADR-0015 (kept for history)  | Phase 1A |
 | ADR-0002 | User provisioning and activation | Accepted  | Phase 1A |
 | ADR-0003 | University Student API contract | Pending | Phase 1B |
 | ADR-0004 | Staff data scope | Accepted  | Phase 1A (hook exists regardless) |
@@ -30,5 +30,6 @@ New package/project/abstraction; any item in `AGENTS.md §1`; any deviation from
 | ADR-0012 | Reference-data source of truth | Pending | Phase 1D |
 | ADR-0013 | ProfessorSelector requirement | Pending (default: deferred to Phase 6) | Phase 6 |
 | ADR-0014 | Workflow claiming | Pending (default: minimal claim) | Phase 4 |
+| ADR-0015 | Dual authentication with SSO-first policy | Accepted  | Phase 1A (amends ADR-0002; supersedes ADR-0001) |
 
 Keep this table current whenever an ADR is added or changes status.

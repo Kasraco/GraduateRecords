@@ -10,8 +10,8 @@ public sealed class LocalUserDirectory(UserManager<ApplicationUser> userManager)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(normalizedNationalId);
 
-        // UserName is the normalized National ID (ADR-0001 rule 6).
+        // UserName is the normalized National ID (ADR-0001 rule 6, ADR-0015 §3).
         var user = await userManager.FindByNameAsync(normalizedNationalId);
-        return user is null ? null : new LocalUser(user.Id, user.FullName);
+        return user is null ? null : new LocalUser(user.Id, user.FullName, user.UserKind);
     }
 }

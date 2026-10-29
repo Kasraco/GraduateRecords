@@ -58,5 +58,12 @@ public sealed class SignOutTests(GraduateRecordsWebApplicationFactory factory)
             factory, AuditActions.AuthenticationSignedOut, correlationId));
         Assert.False(SsoTestFlow.AuditContains(audit, nationalId),
             "The sign-out audit must not carry the National ID (AGENTS §14).");
+
+        // ADR-0015 §16: the audit distinguishes the authentication path; an SSO
+        // session logout is recorded as Sso (and reaches the SSO end-session).
+        Assert.True(audit.Properties.TryGetValue("AuditDetails", out var details)
+                    && details is Serilog.Events.ScalarValue { Value: string detailsJson }
+                    && detailsJson.Contains("\"Method\":\"sso\"", StringComparison.Ordinal),
+            "The sign-out audit of an SSO session must carry the Sso method marker.");
     }
 }

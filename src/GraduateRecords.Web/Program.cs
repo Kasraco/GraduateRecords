@@ -1,19 +1,13 @@
 using System.Threading.RateLimiting;
-using GraduateRecords.Application.Common.Auditing;
-using GraduateRecords.Application.Common.Time;
-using GraduateRecords.Domain.Auditing;
 using GraduateRecords.Infrastructure;
-using GraduateRecords.Infrastructure.Identity;
 using GraduateRecords.Infrastructure.Logging;
 using GraduateRecords.Web.Controllers;
 using GraduateRecords.Web.Infrastructure;
 using GraduateRecords.Web.Middleware;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -158,77 +152,11 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// AGENTS §13 "Development SSO / Authentication Rule": an explicit,
-// development-only authentication mechanism for exercising protected UI without
-// the university IdP. It is registered ONLY in the Development environment and
-// only while real SSO configuration is absent, accepts ONLY the fixed controlled
-// test identity (never an arbitrary National ID, password or university
-// credential), signs in through the normal Identity pipeline and therefore
-// grants nothing extra: fallback policy, permission, ownership and staff-scope
-// checks are untouched.
-if (app.Environment.IsDevelopment() &&
-    !app.Services.GetRequiredService<IOptions<GraduateRecords.Infrastructure.Options.IdentitySecuritySettings>>().Value.IsOidcConfigured)
-{
-    app.MapGet("/dev/login/{identityKey}", async (
-        string identityKey,
-        HttpContext http,
-        UserManager<ApplicationUser> users,
-        SignInManager<ApplicationUser> signIn,
-        IAuditWriter auditWriter,
-        IClock clock) =>
-    {
-        // Loopback callers only, and only the controlled development identity.
-        var isLoopback = System.Net.IPAddress.IsLoopback(
-            http.Connection.RemoteIpAddress ?? System.Net.IPAddress.None);
-
-        if (!isLoopback ||
-            !string.Equals(identityKey, DevelopmentConfiguration.TestIdentityKey, StringComparison.Ordinal))
-        {
-            return Results.NotFound();
-        }
-
-        var user = await users.FindByNameAsync(DevelopmentConfiguration.TestIdentityUserName);
-        if (user is null)
-        {
-            user = new ApplicationUser
-            {
-                Id = Guid.NewGuid().ToString("N"),
-                UserName = DevelopmentConfiguration.TestIdentityUserName,
-                FullName = DevelopmentConfiguration.TestIdentityFullName,
-                SecurityStamp = Guid.NewGuid().ToString("N"),
-            };
-
-            var created = await users.CreateAsync(user);
-            if (!created.Succeeded)
-            {
-                return Results.NotFound();
-            }
-        }
-
-        var properties = new AuthenticationProperties();
-        AbsoluteSessionLifetime.Anchor(properties, clock.UtcNow);
-        await signIn.SignInAsync(user, properties);
-
-        // Best-effort operational sign-in audit (AGENTS §14), like every session start.
-        await auditWriter.WriteAsync(
-            new AuditEntry(
-                clock.UtcNow,
-                user.Id,
-                user.FullName,
-                AuditActions.AuthenticationSignInSucceeded,
-                "User",
-                user.Id,
-                AuditResult.Success,
-                "ورود آزمایشی محیط توسعه",
-                DetailsJson: null,
-                IpAddress: http.Connection.RemoteIpAddress?.ToString(),
-                UserAgent: http.Request.Headers.UserAgent.ToString(),
-                CorrelationId: CorrelationIdMiddleware.GetCorrelationId(http)),
-            http.RequestAborted);
-
-        return Results.Redirect("/");
-    }).AllowAnonymous();
-}
+// ADR-0015 §13: the temporary Development-only /dev/login mechanism has been
+// removed now that formal local authentication (National ID + password for
+// eligible Staff/Administrator accounts) is implemented and covered by tests.
+// Development without SSO configuration uses the login choice page's local
+// path; there is no hidden development authentication bypass.
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {

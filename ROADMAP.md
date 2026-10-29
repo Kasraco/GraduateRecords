@@ -3,20 +3,20 @@
 Rules: one phase at a time; one vertical slice at a time inside a phase; each phase ends with its completion criteria met. Slices are implementation units, not separate roadmap phases.
 **ADR rule:** an ADR must be Accepted before the first phase/slice that depends on it begins. A Proposed ADR is not binding. Later ADRs never block earlier slices.
 
-**ADR schedule:** Phase 1A → 0001, 0002, 0004, 0006, 0007, 0008 · Phase 1B → 0003 · Phase 1C → 0010 · Phase 1D → 0011, 0012 · Phase 2 → 0009 · Phase 3 → 0005 · Phase 4 → 0014 · Phase 6 → 0013.
+**ADR schedule:** Phase 1A → 0015, 0002, 0004, 0006, 0007, 0008 (0015 supersedes 0001) · Phase 1B → 0003 · Phase 1C → 0010 · Phase 1D → 0011, 0012 · Phase 2 → 0009 · Phase 3 → 0005 · Phase 4 → 0014 · Phase 6 → 0013.
 
 ## Phase 0: Decisions, bootstrap, observability (≈ 1–2 weeks, mostly non-code)
 **Goal:** establish a safe, observable skeleton and the decisions required to begin Phase 1A.
-**ADRs:** Phase 0 requires only the ADRs needed to begin Phase 1A to be **Accepted**: 0001, 0002, 0004, 0006, 0007, 0008. Later ADRs are Accepted before their dependent slice (schedule above).
+**ADRs:** Phase 0 requires only the ADRs needed to begin Phase 1A to be **Accepted**: 0015 (supersedes 0001), 0002, 0004, 0006, 0007, 0008. Later ADRs are Accepted before their dependent slice (schedule above).
 **Build:** repo, solution, `Directory.*.props`, four projects + test projects, CI (build, test, Tailwind build), architecture tests (dependency rules, `innerHTML` grep, logical-class grep), Serilog, `CorrelationId` middleware, global exception handler with the standard Persian error page, security headers, health checks (`/health/live`, `/health/ready`), Tailwind v4 pipeline, Vazirmatn, empty RTL layout.
-**Done when:** CI builds green; architecture tests pass; an RTL Persian page renders; an unhandled exception shows `خطایی رخ داده است.` + `کد پیگیری` with no leakage; health endpoints respond without sensitive detail; ADRs 0001, 0002, 0004, 0006, 0007 and 0008 are Accepted (not merely Proposed).
+**Done when:** CI builds green; architecture tests pass; an RTL Persian page renders; an unhandled exception shows `خطایی رخ داده است.` + `کد پیگیری` with no leakage; health endpoints respond without sensitive detail; ADRs 0015 (superseding 0001), 0002, 0004, 0006, 0007 and 0008 are Accepted (not merely Proposed).
 
 ## Phase 1: Foundation
 **Goal:** secure foundation without business forms. Slices:
 
 ### 1A: Foundation + Identity + permissions
-**Requires Accepted:** ADR-0001, 0002, 0004, 0006, 0007, 0008.
-Features: sign-in/out, lockout, password policy, cookie settings, rate limiting, roles/permissions model, `PermissionPolicyProvider`/`HasPermission`, `ICurrentUser` with `StaffScope` (+ `ScopeExtensions`, default `All` until ADR-0004 policy is applied), `IIdentityAdministration` + admin UI for users/roles/permissions, seeded Student/Staff/Administrator roles, last-admin protection.
+**Requires Accepted:** ADR-0015 (dual authentication; supersedes ADR-0001), 0002, 0004, 0006, 0007, 0008.
+Features: sign-in/out (University SSO primary + local National ID/password for eligible Staff/Administrator accounts per ADR-0015; Students SSO-only; `/dev/login` removed), lockout, password policy, cookie settings, rate limiting, roles/permissions model, `PermissionPolicyProvider`/`HasPermission`, `ICurrentUser` with `StaffScope` (+ `ScopeExtensions`, default `All` until ADR-0004 policy is applied), `IIdentityAdministration` + admin UI for users/roles/permissions, seeded Student/Staff/Administrator roles, last-admin protection.
 Security: no default passwords; permission-escalation check; SecurityStamp revalidation.
 Tests: authorization matrix scaffold, escalation, last-admin, scope extension test with fake scope, lockout.
 

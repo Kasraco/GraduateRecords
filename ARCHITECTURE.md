@@ -12,7 +12,7 @@ Companion documents: `AGENTS.md` (rules), `DESIGN.md` (UI), `OPENCODE-MASTER-INS
 | Graduate Studies Staff | Review queue, inspect submissions/attachments, approve/reject/return with comments, search students, run reports (within their scope) |
 | Administrator | Design/publish forms, assign forms, define workflow revisions, manage users/roles/permissions/reference data, view audit |
 
-External: University Student API (profile source; may be unavailable). The authentication provider is decided in ADR-0001.
+External: University Student API (profile source; may be unavailable). The authentication model is decided in ADR-0015 (dual authentication, SSO-first; supersedes ADR-0001).
 
 ```text
 Student ─┐                                  ┌─▶ SQL Server

@@ -105,4 +105,34 @@ public sealed class SsoSignInTests(GraduateRecordsWebApplicationFactory factory)
         Assert.Single(SsoTestFlow.AuditEvents(factory, AuditActions.AuthenticationSignInFailed, correlationId));
         Assert.Empty(SsoTestFlow.AuditEvents(factory, AuditActions.AuthenticationSignInSucceeded, correlationId));
     }
+
+    [Fact]
+    public async Task The_sso_challenge_never_carries_an_external_return_url_to_the_final_destination()
+    {
+        var nationalId = SsoTestFlow.NextNationalId();
+        await SsoTestFlow.CreateUserAsync(factory, nationalId, "کاربر آزمایشی");
+        using var client = SsoTestFlow.CreateClient(factory);
+
+        // Tampered challenge: an attacker appends an absolute ReturnUrl.
+        var (callback, _) = await SsoTestFlow.AuthenticateAsync(
+            factory,
+            client,
+            nationalId,
+            challengePath: "/Account/SsoSignIn?returnUrl=https%3A%2F%2Fevil.example");
+
+        using (callback)
+        {
+            Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
+
+            // SafeReturnUrl discards the absolute URL at challenge time, so the
+            // final post-authentication destination is the safe default "/" —
+            // never the attacker's host. Authentication itself still succeeds.
+            Assert.Equal("/", callback.Headers.Location!.ToString());
+            Assert.DoesNotContain("evil.example", callback.Headers.Location!.ToString(), StringComparison.Ordinal);
+            Assert.True(
+                callback.Headers.TryGetValues("Set-Cookie", out var cookies)
+                && cookies.Any(value => value.StartsWith("GraduateRecords.Auth=", StringComparison.Ordinal)),
+                "Authentication must still succeed; only the redirect target is defended.");
+        }
+    }
 }

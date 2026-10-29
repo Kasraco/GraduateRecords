@@ -1,4 +1,5 @@
 using System.Net;
+using GraduateRecords.Application.Common.Identity;
 using GraduateRecords.Infrastructure.Identity;
 using GraduateRecords.Web.Middleware;
 using Microsoft.AspNetCore.Antiforgery;
@@ -16,12 +17,20 @@ public sealed record SignInSession(string AuthCookie, string RawSetCookieHeader,
 
 /// <summary>
 /// Shared helpers: unique per-test client IPs (rate-limiter partitions), user
-/// provisioning, the browser-side OIDC handshake against the TestServer, and
-/// audit-log assertions. Cookies are handled manually so Secure cookies work
-/// over the TestServer's http address deterministically.
+/// provisioning, the browser-side OIDC handshake against the TestServer, the
+/// local-credential login POST, and audit-log assertions. Cookies are handled
+/// manually so Secure cookies work over the TestServer's http address
+/// deterministically.
 /// </summary>
 public static class SsoTestFlow
 {
+    /// <summary>
+    /// Test-fixture password only (valid under the decided policy: 18 chars, no
+    /// composition rules). It is a shared test constant, never a production or
+    /// seeded credential (ADR-0015 §8).
+    /// </summary>
+    public const string TestPassword = "IntegrationTest1234";
+
     private static int _clientIpCounter;
     private static int _nationalIdCounter;
 
@@ -59,7 +68,10 @@ public static class SsoTestFlow
     }
 
     public static async Task<ApplicationUser> CreateUserAsync(
-        GraduateRecordsWebApplicationFactory factory, string nationalId, string fullName)
+        GraduateRecordsWebApplicationFactory factory,
+        string nationalId,
+        string fullName,
+        LocalUserKind kind = LocalUserKind.Student)
     {
         var userManager = factory.Services.GetRequiredService<UserManager<ApplicationUser>>();
         var user = new ApplicationUser
@@ -68,12 +80,12 @@ public static class SsoTestFlow
             UserName = nationalId,
             NationalId = nationalId,
             FullName = fullName,
+            UserKind = kind,
             LockoutEnabled = true,
             SecurityStamp = Guid.NewGuid().ToString("N"),
         };
 
-        // 18 characters: valid under the decided policy (min 14, no composition rules).
-        var result = await userManager.CreateAsync(user, "IntegrationTest1234");
+        var result = await userManager.CreateAsync(user, TestPassword);
         Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(error => error.Code)));
         return user;
     }
@@ -83,13 +95,18 @@ public static class SsoTestFlow
     /// endpoint, then the callback redirect with the state and correlation cookie.
     /// Returns the raw callback response plus the correlation id of that request,
     /// which the caller uses to scope audit assertions to this flow only.
+    /// <paramref name="challengePath"/> may carry a query string (e.g. a tampered
+    /// returnUrl) so open-redirect protection can be exercised end to end.
     /// </summary>
     public static async Task<(HttpResponseMessage Response, string CorrelationId)> AuthenticateAsync(
-        GraduateRecordsWebApplicationFactory factory, HttpClient client, string ssoNationalId)
+        GraduateRecordsWebApplicationFactory factory,
+        HttpClient client,
+        string ssoNationalId,
+        string challengePath = "/Account/SsoSignIn")
     {
         factory.FakeIdP.UserInfoNationalId = ssoNationalId;
 
-        using var challenge = await client.GetAsync("/Account/Login", HttpCompletionOption.ResponseHeadersRead);
+        using var challenge = await client.GetAsync(challengePath, HttpCompletionOption.ResponseHeadersRead);
         Assert.Equal(HttpStatusCode.Redirect, challenge.StatusCode);
 
         var authorizeUri = challenge.Headers.Location!;
@@ -132,6 +149,62 @@ public static class SsoTestFlow
     {
         var request = new HttpRequestMessage(method, path);
         request.Headers.Add("Cookie", "GraduateRecords.Auth=" + authCookie);
+        return request;
+    }
+
+    /// <summary>
+    /// Mints an antiforgery token pair for an ANONYMOUS caller (the local login
+    /// form), from any host's root service provider.
+    /// </summary>
+    public static async Task<(string CookieToken, string RequestToken)> MintAnonymousAntiforgeryTokensAsync(
+        IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        var httpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
+        httpContext.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity());
+
+        var antiforgery = scope.ServiceProvider.GetRequiredService<IAntiforgery>();
+        var tokens = antiforgery.GetAndStoreTokens(httpContext);
+
+        var setCookieHeader = httpContext.Response.Headers.SetCookie.ToString();
+        var cookieToken = ParseCookiePair(setCookieHeader, "GraduateRecords.Antiforgery");
+        Assert.NotNull(cookieToken);
+        return (cookieToken!, tokens.RequestToken!);
+    }
+
+    /// <summary>
+    /// The local credential login POST (ADR-0015 §1): form-encoded National ID
+    /// + password with the antiforgery header the AJAX/form pipeline expects.
+    /// <paramref name="returnUrl"/> is optional so open-redirect protection can
+    /// be asserted against attacker-supplied values.
+    /// </summary>
+    public static HttpRequestMessage LocalLogin(
+        string nationalId,
+        string password,
+        string antiforgeryCookieToken,
+        string antiforgeryRequestToken,
+        string correlationId,
+        string? returnUrl = null)
+    {
+        var form = new Dictionary<string, string>
+        {
+            ["NationalId"] = nationalId,
+            ["Password"] = password,
+        };
+
+        if (returnUrl is not null)
+        {
+            form["ReturnUrl"] = returnUrl;
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/Account/LocalLogin")
+        {
+            Content = new FormUrlEncodedContent(form),
+        };
+
+        request.Headers.Add("Cookie", "GraduateRecords.Antiforgery=" + antiforgeryCookieToken);
+        request.Headers.Add("X-CSRF-TOKEN", antiforgeryRequestToken);
+        request.Headers.Add("X-Correlation-Id", correlationId);
         return request;
     }
 
@@ -191,7 +264,8 @@ public static class SsoTestFlow
         return string.Join("; ", pairs);
     }
 
-    private static string ExtractCookieValue(HttpResponseMessage response, string name)
+    /// <summary>Extracts the value of a Set-Cookie entry by cookie name.</summary>
+    public static string ExtractCookieValue(HttpResponseMessage response, string name)
     {
         Assert.True(response.Headers.TryGetValues("Set-Cookie", out var setCookies),
             $"No Set-Cookie header; expected the '{name}' cookie.");

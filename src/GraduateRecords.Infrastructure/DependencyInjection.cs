@@ -67,9 +67,11 @@ public static class DependencyInjection
     /// <summary>
     /// Phase 1A Use Case 1: local Identity store, decided security options, the
     /// application cookie (ADR-0001 rule 13, ADR-0008 §5) and the university SSO
-    /// scheme (ADR-0001 rules 1–3). No local password login route exists: the
-    /// break-glass administrator requires MFA (ADR-0001 rule 12), which is not
-    /// decided or implemented, so password-only authentication stays impossible.
+    /// scheme (ADR-0001 rules 1–3, ADR-0015 §1). Local National ID + password
+    /// authentication for eligible Staff/Administrator accounts is a formal
+    /// production path (ADR-0015 §1) and uses this same Identity store — never a
+    /// second user record. Break-glass remains a separate, not-yet-implemented
+    /// emergency mechanism (ADR-0015 §11).
     /// </summary>
     public static IServiceCollection AddIdentityAuthentication(
         this IServiceCollection services,
