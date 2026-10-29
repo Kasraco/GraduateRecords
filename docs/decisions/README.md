@@ -31,5 +31,6 @@ New package/project/abstraction; any item in `AGENTS.md §1`; any deviation from
 | ADR-0013 | ProfessorSelector requirement | Pending (default: deferred to Phase 6) | Phase 6 |
 | ADR-0014 | Workflow claiming | Pending (default: minimal claim) | Phase 4 |
 | ADR-0015 | Dual authentication with SSO-first policy | Accepted  | Phase 1A (amends ADR-0002; supersedes ADR-0001) |
+| ADR-0016 | Bootstrap Administrator provisioning and local credential lifecycle | Accepted  | Phase 1A (complements ADR-0002/0004/0015; gates the bootstrap slice) |
 
 Keep this table current whenever an ADR is added or changes status.
