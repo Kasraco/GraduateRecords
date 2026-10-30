@@ -435,7 +435,7 @@ Rule: **an ADR must be Accepted before the first phase/slice that depends on it 
 
 | Before | ADRs |
 |---|---|
-| Phase 1A | 0015 dual authentication (supersedes 0001) · 0002 provisioning/activation · 0004 staff data scope · 0006 hosting/deployment/log retention · 0007 SQL Server version/backup · 0008 Data Protection key storage · 0016 bootstrap Administrator/local credential lifecycle |
+| Phase 1A | 0015 dual authentication (supersedes 0001) · 0002 provisioning/activation · 0004 staff data scope · 0006 hosting/deployment/log retention · 0007 SQL Server version/backup · 0008 Data Protection key storage · 0016 bootstrap Administrator/local credential lifecycle · 0017 roles/permissions/scope/Administrator invariants |
 | Phase 1B | 0003 university API contract |
 | Phase 1C | 0010 file retention |
 | Phase 1D | 0011 Tailwind v4 browser support · 0012 reference-data source of truth |

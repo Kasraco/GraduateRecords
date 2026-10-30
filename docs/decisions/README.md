@@ -32,5 +32,6 @@ New package/project/abstraction; any item in `AGENTS.md §1`; any deviation from
 | ADR-0014 | Workflow claiming | Pending (default: minimal claim) | Phase 4 |
 | ADR-0015 | Dual authentication with SSO-first policy | Accepted  | Phase 1A (amends ADR-0002; supersedes ADR-0001) |
 | ADR-0016 | Bootstrap Administrator provisioning and local credential lifecycle | Accepted  | Phase 1A (complements ADR-0002/0004/0015; gates the bootstrap slice) |
+| ADR-0017 | Roles, permissions, scope, and Administrator invariants | Accepted  | Phase 1A (resolves ADR-0016 deferrals; partially supersedes ADR-0004 §2 mapping/delegation; gates UC2) |
 
 Keep this table current whenever an ADR is added or changes status.

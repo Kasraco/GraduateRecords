@@ -3,7 +3,7 @@
 Rules: one phase at a time; one vertical slice at a time inside a phase; each phase ends with its completion criteria met. Slices are implementation units, not separate roadmap phases.
 **ADR rule:** an ADR must be Accepted before the first phase/slice that depends on it begins. A Proposed ADR is not binding. Later ADRs never block earlier slices.
 
-**ADR schedule:** Phase 1A → 0015, 0002, 0004, 0006, 0007, 0008, 0016 (0015 supersedes 0001) · Phase 1B → 0003 · Phase 1C → 0010 · Phase 1D → 0011, 0012 · Phase 2 → 0009 · Phase 3 → 0005 · Phase 4 → 0014 · Phase 6 → 0013.
+**ADR schedule:** Phase 1A → 0015, 0002, 0004, 0006, 0007, 0008, 0016, 0017 (0015 supersedes 0001) · Phase 1B → 0003 · Phase 1C → 0010 · Phase 1D → 0011, 0012 · Phase 2 → 0009 · Phase 3 → 0005 · Phase 4 → 0014 · Phase 6 → 0013.
 
 ## Phase 0: Decisions, bootstrap, observability (≈ 1–2 weeks, mostly non-code)
 **Goal:** establish a safe, observable skeleton and the decisions required to begin Phase 1A.
@@ -15,8 +15,8 @@ Rules: one phase at a time; one vertical slice at a time inside a phase; each ph
 **Goal:** secure foundation without business forms. Slices:
 
 ### 1A: Foundation + Identity + permissions
-**Requires Accepted:** ADR-0015 (dual authentication; supersedes ADR-0001), 0002, 0004, 0006, 0007, 0008, 0016.
-Features: sign-in/out (University SSO primary + local National ID/password for eligible Staff/Administrator accounts per ADR-0015; Students SSO-only; `/dev/login` removed), lockout, password policy, cookie settings, rate limiting, roles/permissions model, `PermissionPolicyProvider`/`HasPermission`, `ICurrentUser` with `StaffScope` (+ `ScopeExtensions`, default `All` until ADR-0004 policy is applied), `IIdentityAdministration` + admin UI for users/roles/permissions, seeded Student/Staff/Administrator roles, last-admin protection.
+**Requires Accepted:** ADR-0015 (dual authentication; supersedes ADR-0001), 0002, 0004, 0006, 0007, 0008, 0016, 0017.
+Features: sign-in/out (University SSO primary + local National ID/password for eligible Staff/Administrator accounts per ADR-0015; Students SSO-only; `/dev/login` removed), lockout, password policy, cookie settings, rate limiting, roles/permissions model, `PermissionPolicyProvider`/`HasPermission`, `ICurrentUser` with `StaffScope` (+ `ScopeExtensions`, default `All` until ADR-0004 policy is applied), `IIdentityAdministration` + admin UI for users/roles/permissions, seeded Student/GraduateStaff/Administrator roles, last-admin protection.
 Security: no default passwords; permission-escalation check; SecurityStamp revalidation.
 Tests: authorization matrix scaffold, escalation, last-admin, scope extension test with fake scope, lockout.
 
