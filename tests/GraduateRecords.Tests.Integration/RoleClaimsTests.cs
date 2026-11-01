@@ -88,13 +88,26 @@ public sealed class RoleClaimsTests(GraduateRecordsWebApplicationFactory factory
         // ADR-0008 §5.3: validation interval is zero, so the cookie's
         // OnValidatePrincipal rebuilds the principal through the factory on
         // essentially every request — role/permission changes take effect on the
-        // next request without any SecurityStamp rotation.
+        // next request without any SecurityStamp rotation. The user starts with
+        // NO roles, so the original principal cannot already contain the claims
+        // the rebuilt principal is asserted to gain.
         var user = await CreateUserAsync();
+
+        // Steps 1-2: the starting principal proves this user has no role or
+        // permission claims yet.
+        var originalPrincipal = await CreatePrincipalAsync(user);
+        Assert.DoesNotContain(originalPrincipal.Claims, claim => claim.Type == ClaimTypes.Role);
+        Assert.DoesNotContain(originalPrincipal.Claims, claim => claim.Type == PermissionClaims.Type);
+
+        // Steps 3-5: arrange membership and role claims AFTER the original
+        // principal exists — this is what makes the rebuild observable.
         var role = await EnsureRoleAsync(RoleNames.Administrator);
         await AddToRoleAsync(user, RoleNames.Administrator);
         await EnsureRoleClaimAsync(role, PermissionClaims.Type, Permissions.UsersManage);
 
-        var context = await CreateValidationContextAsync(user);
+        // Steps 6-7: validate the ORIGINAL principal through the real
+        // OnValidatePrincipal callback (harness unchanged).
+        var context = CreateValidationContext(originalPrincipal);
         var validatePrincipal = factory.Services
             .GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
             .Get(IdentityConstants.ApplicationScheme).Events.OnValidatePrincipal;
@@ -102,6 +115,7 @@ public sealed class RoleClaimsTests(GraduateRecordsWebApplicationFactory factory
 
         await validatePrincipal(context);
 
+        // Step 8: the rebuilt principal reflects the current Identity state.
         Assert.NotNull(context.Principal);
         Assert.True(context.ShouldRenew, "A validated session must renew with the rebuilt principal.");
         Assert.Contains(context.Principal!.Claims, claim =>
@@ -180,12 +194,11 @@ public sealed class RoleClaimsTests(GraduateRecordsWebApplicationFactory factory
 
     /// <summary>
     /// Builds the exact context the cookie handler passes to OnValidatePrincipal
-    /// (same harness as SessionSecurityTests), with a fresh absolute-cap anchor.
+    /// around the SUPPLIED principal (same harness as SessionSecurityTests), with
+    /// a fresh absolute-cap anchor.
     /// </summary>
-    private async Task<CookieValidatePrincipalContext> CreateValidationContextAsync(ApplicationUser user)
+    private CookieValidatePrincipalContext CreateValidationContext(ClaimsPrincipal principal)
     {
-        var principal = await CreatePrincipalAsync(user);
-
         var properties = new AuthenticationProperties();
         AbsoluteSessionLifetime.Anchor(properties, DateTimeOffset.UtcNow);
 

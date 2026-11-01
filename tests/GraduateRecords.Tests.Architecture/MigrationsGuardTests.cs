@@ -8,8 +8,10 @@ namespace GraduateRecords.Tests.Architecture;
 /// UC2.2 migration safety (AGENTS §17; UC2.2 plan §H): the three applied
 /// migrations are immutable — pinned here by SHA-256 over line-ending-normalized
 /// content, so the pin is byte-for-byte on every platform — and the UC2.2 role
-/// migration must be purely additive: it creates exactly the role-store tables,
-/// its Down drops only those, and it is ordered after <c>initialCatalog</c>.
+/// migration must be purely additive: exactly three CreateTable and three
+/// CreateIndex operations (with exactly the expected table and index names) in
+/// Up(), exactly three DropTable operations in Down() and no other schema
+/// operation in either, and it is ordered after <c>initialCatalog</c>.
 /// </summary>
 public sealed class MigrationsGuardTests
 {
@@ -43,6 +45,10 @@ public sealed class MigrationsGuardTests
 
     private static readonly string[] RoleStoreTables = ["AspNetRoleClaims", "AspNetRoles", "AspNetUserRoles"];
 
+    /// <summary>The three indexes the UC2.2 migration must create (ordinal sort).</summary>
+    private static readonly string[] RoleStoreIndexes =
+        ["IX_AspNetRoleClaims_RoleId", "IX_AspNetUserRoles_RoleId", "RoleNameIndex"];
+
     [Fact]
     public void The_three_applied_migrations_are_byte_for_byte_untouched()
     {
@@ -68,20 +74,30 @@ public sealed class MigrationsGuardTests
         // Up: exactly the three role-store tables, nothing else created...
         Assert.Equal(RoleStoreTables, TableNamesIn(up, "CreateTable"));
 
-        // ...and no destructive, renaming or raw-SQL operation of any kind.
-        foreach (var forbidden in new[]
-                 {
-                     "DropTable(", "DropColumn(", "DropIndex(", "AlterColumn(",
-                     "RenameTable(", "RenameColumn(", "migrationBuilder.Sql(",
-                 })
-        {
-            Assert.True(!up.Contains(forbidden, StringComparison.Ordinal),
-                $"The UC2.2 migration Up() must be additive but contains '{forbidden}'.");
-        }
+        // ...exactly three CreateIndex operations with exactly the expected
+        // index names...
+        Assert.Equal(RoleStoreIndexes, IndexNamesIn(up));
 
-        // Down: drops only the newly introduced role-store schema.
+        // ...and no schema operation other than CreateTable/CreateIndex. An
+        // explicit operation allowlist (parsed structurally as
+        // migrationBuilder.<Operation>( calls) is used instead of a fragile
+        // list of forbidden substrings: any alter, drop, rename, raw SQL or
+        // otherwise unexpected operation fails by name immediately.
+        var upOperations = OperationsIn(up);
+        Assert.Equal(6, upOperations.Count);
+        Assert.Equal(3, upOperations.Count(operation => operation == "CreateTable"));
+        Assert.Equal(3, upOperations.Count(operation => operation == "CreateIndex"));
+        Assert.All(upOperations, operation => Assert.True(
+            operation is "CreateTable" or "CreateIndex",
+            $"The UC2.2 migration Up() contains unexpected schema operation '{operation}'."));
+
+        // Down: exactly three operations, all DropTable...
+        var downOperations = OperationsIn(down);
+        Assert.Equal(3, downOperations.Count);
+        Assert.All(downOperations, operation => Assert.Equal("DropTable", operation));
+
+        // ...dropping only the newly introduced role-store schema.
         Assert.Equal(RoleStoreTables, TableNamesIn(down, "DropTable"));
-        Assert.DoesNotContain("CreateTable(", down, StringComparison.Ordinal);
 
         // Ordering: every migration id is a 14-digit timestamp prefix; the new
         // migration must be the newest one, i.e. sorted after initialCatalog.
@@ -113,6 +129,23 @@ public sealed class MigrationsGuardTests
     /// <summary>Table names passed to <paramref name="operation"/> in the given slice, sorted.</summary>
     private static List<string> TableNamesIn(string slice, string operation) =>
         Regex.Matches(slice, Regex.Escape(operation) + @"\(\s*name:\s*""([^""]+)""")
+            .Select(match => match.Groups[1].Value)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>
+    /// Method name of every <c>migrationBuilder</c> schema operation invoked in
+    /// the given slice, in source order — the structural basis for the
+    /// operation allowlist assertions.
+    /// </summary>
+    private static List<string> OperationsIn(string slice) =>
+        Regex.Matches(slice, @"migrationBuilder\.(\w+)\(")
+            .Select(match => match.Groups[1].Value)
+            .ToList();
+
+    /// <summary>Names passed to <c>CreateIndex(name: …)</c> in the given slice, sorted.</summary>
+    private static List<string> IndexNamesIn(string slice) =>
+        Regex.Matches(slice, @"migrationBuilder\.CreateIndex\(\s*name:\s*""([^""]+)""")
             .Select(match => match.Groups[1].Value)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToList();
