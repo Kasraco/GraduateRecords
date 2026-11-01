@@ -5,16 +5,29 @@ using Microsoft.Extensions.Options;
 namespace GraduateRecords.Infrastructure.Identity;
 
 /// <summary>
-/// Adds the <see cref="FullNameClaimType"/> claim to the local session principal.
-/// ADR-0001 rule 18: the Name claim is the UserName, which is the National ID, so
-/// audit and UI must never render it; the full name is the display snapshot
+/// Builds the local session principal (ADR-0001 rule 18, ADR-0015 §3).
+/// <para>
+/// UC2.2: derives from the role-aware <see cref="UserClaimsPrincipalFactory{TUser, TRole}"/>,
+/// so the framework itself copies, on every principal build, (a) one canonical
+/// role-name claim per actual <c>AspNetUserRoles</c> membership and (b) every
+/// Identity role claim from <c>AspNetRoleClaims</c> — the persisted
+/// <c>permission</c> claims of ADR-0004/ADR-0017 §6. No custom role/permission
+/// loading code exists here; only the display claim below is added by this class.
+/// </para>
+/// <para>
+/// The Name claim is the UserName, which is the National ID, so audit and UI
+/// must never render it; the full name is the display snapshot
 /// (AGENTS §14 <c>ActorDisplayName</c>). The factory runs on every security-stamp
-/// validation, so the claim always reflects the current stored name.
+/// validation (ADR-0008 §5.3), so claims always reflect the current stored
+/// roles, role claims and name. Nothing is derived from UserKind,
+/// authentication method or any other session attribute (ADR-0017 §1/§4).
+/// </para>
 /// </summary>
 public sealed class ApplicationUserClaimsPrincipalFactory(
     UserManager<ApplicationUser> userManager,
+    RoleManager<ApplicationRole> roleManager,
     IOptions<IdentityOptions> optionsAccessor)
-    : UserClaimsPrincipalFactory<ApplicationUser>(userManager, optionsAccessor)
+    : UserClaimsPrincipalFactory<ApplicationUser, ApplicationRole>(userManager, roleManager, optionsAccessor)
 {
     public const string FullNameClaimType = "full_name";
 

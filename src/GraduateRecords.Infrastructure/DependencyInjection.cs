@@ -97,7 +97,20 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.AddHttpContextAccessor();
 
+        // UC2.2 role store (ADR-0017 §Migration impact). Two ordering rules,
+        // both load-bearing:
+        //   1. AddRoles must precede AddEntityFrameworkStores — the EF store
+        //      registration reads IdentityBuilder.RoleType at call time to
+        //      register the role-aware UserStore (IUserRoleStore) and RoleStore.
+        //   2. The ApplicationUserClaimsPrincipalFactory Replace below must stay
+        //      after this chain — AddRoles adds a second, framework
+        //      UserClaimsPrincipalFactory<ApplicationUser, ApplicationRole>
+        //      registration, and only Replace removes it (so full_name and the
+        //      single factory contract stay intact).
+        // Password, lockout, security-stamp, cookie, OIDC and local sign-in
+        // behavior are unchanged by roles (ADR-0015; ADR-0008 §5.3).
         services.AddIdentityCore<ApplicationUser>()
+            .AddRoles<ApplicationRole>()
             .AddEntityFrameworkStores<AppDbContext>()
             .AddSignInManager();
 

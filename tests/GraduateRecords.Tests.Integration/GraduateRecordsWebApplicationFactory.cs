@@ -19,7 +19,13 @@ public sealed class GraduateRecordsWebApplicationFactory : WebApplicationFactory
 {
     public CapturingLogSink Logs { get; } = new();
     public FakeOpenIdProvider FakeIdP { get; } = new();
-    public InMemoryUserStore Users { get; } = new();
+    public InMemoryRoleStore Roles { get; } = new();
+
+    // Created with the role store: role membership resolves display names
+    // through it, exactly as AspNetUserRoles joins AspNetRoles.
+    public InMemoryUserStore Users { get; }
+
+    public GraduateRecordsWebApplicationFactory() => Users = new InMemoryUserStore(Roles);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -35,6 +41,13 @@ public sealed class GraduateRecordsWebApplicationFactory : WebApplicationFactory
             services.RemoveAll<IUserStore<ApplicationUser>>();
             services.AddSingleton(Users);
             services.AddSingleton<IUserStore<ApplicationUser>>(_ => Users);
+
+            // UC2.2: same swap for the role store — without it, any principal build
+            // for a role-carrying user would query the (unreachable) test database
+            // through the EF RoleStore. Roles and role claims are resolved in memory.
+            services.RemoveAll<IRoleStore<ApplicationRole>>();
+            services.AddSingleton(Roles);
+            services.AddSingleton<IRoleStore<ApplicationRole>>(_ => Roles);
 
             // Test-only: lets each test use its own rate-limiter partition (AGENTS §18).
             services.AddSingleton<IStartupFilter, TestClientIpStartupFilter>();
