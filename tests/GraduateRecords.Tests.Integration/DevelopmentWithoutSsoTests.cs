@@ -33,6 +33,14 @@ public sealed class DevelopmentWithoutSsoWebApplicationFactory : WebApplicationF
     public CapturingLogSink Logs { get; } = new();
     public InMemoryUserStore Users { get; } = new();
 
+    /// <summary>
+    /// UC2.3: the startup role/permission reconciliation touches the role
+    /// store, so this host swaps the (unreachable) EF store for the in-memory
+    /// one — this host tests development authentication configuration, never
+    /// persistence (AGENTS §22).
+    /// </summary>
+    public InMemoryRoleStore Roles { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
@@ -42,6 +50,9 @@ public sealed class DevelopmentWithoutSsoWebApplicationFactory : WebApplicationF
             services.RemoveAll<IUserStore<ApplicationUser>>();
             services.AddSingleton(Users);
             services.AddSingleton<IUserStore<ApplicationUser>>(_ => Users);
+            services.RemoveAll<IRoleStore<ApplicationRole>>();
+            services.AddSingleton(Roles);
+            services.AddSingleton<IRoleStore<ApplicationRole>>(_ => Roles);
             services.AddSingleton<ILogEventSink>(Logs);
             services.AddSingleton<IStartupFilter, TestClientIpStartupFilter>();
             services.PostConfigure<AntiforgeryOptions>(options => options.HeaderName = "X-CSRF-TOKEN");

@@ -27,6 +27,21 @@ public sealed class InMemoryRoleStore : IRoleStore<ApplicationRole>, IRoleClaimS
 
     public IReadOnlyCollection<ApplicationRole> All => _roles.Values.ToArray();
 
+    // UC2.3 failure-simulation hooks for the task-mandated reconciliation
+    // failure tests. Each flag is consumed by the first store call that sees
+    // it, so a subsequent reconciliation run repairs state normally. The
+    // Add/Remove-Update flags arm the NEXT UpdateAsync — the store operation
+    // RoleManager invokes after a claim mutation (UpdateRoleAsync) — to
+    // complete its write and then return a failed IdentityResult, mirroring
+    // the realistic EF flow where the claim row is saved but the post-claim
+    // role update fails. Test-only: production stores never set these.
+    public bool FailNextCreate { get; set; }
+    public bool FailNextCreateAfterWriting { get; set; }
+    public bool FailNextAddClaimUpdate { get; set; }
+    public bool FailNextRemoveClaimUpdate { get; set; }
+
+    private string? _pendingUpdateFailureCode;
+
     /// <summary>Lookup by the already-normalized role name (RoleManager normalizes before calling the store).</summary>
     public ApplicationRole? FindByNormalizedName(string normalizedName) =>
         _roles.Values.FirstOrDefault(
@@ -34,12 +49,52 @@ public sealed class InMemoryRoleStore : IRoleStore<ApplicationRole>, IRoleClaimS
 
     public Task<IdentityResult> CreateAsync(ApplicationRole role, CancellationToken cancellationToken)
     {
+        if (FailNextCreateAfterWriting)
+        {
+            FailNextCreateAfterWriting = false;
+            _roles[role.Id] = role;
+            return Task.FromResult(IdentityResult.Failed(new IdentityError
+            {
+                Code = "SimulatedConcurrentCreate",
+                Description = "Simulated failure after a concurrent writer created the row.",
+            }));
+        }
+
+        if (FailNextCreate)
+        {
+            FailNextCreate = false;
+            return Task.FromResult(IdentityResult.Failed(new IdentityError
+            {
+                Code = "SimulatedCreateFailure",
+                Description = "Simulated role creation failure.",
+            }));
+        }
+
         _roles[role.Id] = role;
         return Task.FromResult(IdentityResult.Success);
     }
 
-    public Task<IdentityResult> UpdateAsync(ApplicationRole role, CancellationToken cancellationToken) =>
-        CreateAsync(role, cancellationToken);
+    public Task<IdentityResult> UpdateAsync(ApplicationRole role, CancellationToken cancellationToken)
+    {
+        // The store-level write always completes first (the claim mutation that
+        // preceded this call is durable, like EF RoleStore's separate
+        // SaveChanges calls); only then does the armed one-shot failure turn the
+        // role update into a failed IdentityResult for RoleManager to return.
+        _roles[role.Id] = role;
+
+        var failureCode = _pendingUpdateFailureCode;
+        if (failureCode is null)
+        {
+            return Task.FromResult(IdentityResult.Success);
+        }
+
+        _pendingUpdateFailureCode = null;
+        return Task.FromResult(IdentityResult.Failed(new IdentityError
+        {
+            Code = failureCode,
+            Description = "Simulated role update failure after the store-level claim mutation.",
+        }));
+    }
 
     public Task<IdentityResult> DeleteAsync(ApplicationRole role, CancellationToken cancellationToken)
     {
@@ -92,6 +147,12 @@ public sealed class InMemoryRoleStore : IRoleStore<ApplicationRole>, IRoleClaimS
 
     public Task AddClaimAsync(ApplicationRole role, Claim claim, CancellationToken cancellationToken)
     {
+        if (FailNextAddClaimUpdate)
+        {
+            FailNextAddClaimUpdate = false;
+            _pendingUpdateFailureCode = "SimulatedAddClaimUpdateFailure";
+        }
+
         lock (_claimGate)
         {
             if (!_claims.TryGetValue(role.Id, out var stored))
@@ -107,6 +168,12 @@ public sealed class InMemoryRoleStore : IRoleStore<ApplicationRole>, IRoleClaimS
 
     public Task RemoveClaimAsync(ApplicationRole role, Claim claim, CancellationToken cancellationToken)
     {
+        if (FailNextRemoveClaimUpdate)
+        {
+            FailNextRemoveClaimUpdate = false;
+            _pendingUpdateFailureCode = "SimulatedRemoveClaimUpdateFailure";
+        }
+
         lock (_claimGate)
         {
             if (_claims.TryGetValue(role.Id, out var stored))

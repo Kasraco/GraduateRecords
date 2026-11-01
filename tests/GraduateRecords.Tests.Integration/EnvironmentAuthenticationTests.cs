@@ -1,9 +1,12 @@
 using System.Net;
+using GraduateRecords.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace GraduateRecords.Tests.Integration;
@@ -23,6 +26,14 @@ public abstract class SsoConfiguredWebApplicationFactory : WebApplicationFactory
 
     public FakeOpenIdProvider FakeIdP { get; } = new();
 
+    /// <summary>
+    /// UC2.3: the startup role/permission reconciliation touches the role
+    /// store, so this host swaps the (unreachable) EF store for the in-memory
+    /// one — these environment tests are about OIDC/authentication
+    /// configuration, never persistence (AGENTS §22).
+    /// </summary>
+    public InMemoryRoleStore Roles { get; } = new();
+
     protected abstract string EnvironmentName { get; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -30,9 +41,15 @@ public abstract class SsoConfiguredWebApplicationFactory : WebApplicationFactory
         builder.UseEnvironment(EnvironmentName);
 
         builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<IRoleStore<ApplicationRole>>();
+            services.AddSingleton(Roles);
+            services.AddSingleton<IRoleStore<ApplicationRole>>(_ => Roles);
+
             services.Configure<OpenIdConnectOptions>(
                 OpenIdConnectDefaults.AuthenticationScheme,
-                options => options.BackchannelHttpHandler = FakeIdP));
+                options => options.BackchannelHttpHandler = FakeIdP);
+        });
 
         builder.UseSetting("Identity:Oidc:Authority", FakeOpenIdProvider.Authority);
         builder.UseSetting("Identity:Oidc:ClientId", FakeOpenIdProvider.ClientId);
@@ -75,12 +92,26 @@ public sealed class DevelopmentWithSsoWebApplicationFactory : SsoConfiguredWebAp
 /// </summary>
 public sealed class ProductionWithoutSsoWebApplicationFactory : WebApplicationFactory<Program>
 {
+    /// <summary>
+    /// UC2.3: same in-memory role-store swap as the SSO-configured factories,
+    /// so the startup reconciliation succeeds in-memory and the host then fails
+    /// fast on the deliberately missing OIDC configuration (AGENTS §13).
+    /// </summary>
+    public InMemoryRoleStore Roles { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Production");
         builder.UseSetting("ConnectionStrings:Default", SsoConfiguredWebApplicationFactory.StrictConnection);
         builder.UseSetting("FileStorage:RootPath", TestStorage.Root);
         // Identity:Oidc is deliberately absent.
+
+        builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<IRoleStore<ApplicationRole>>();
+            services.AddSingleton(Roles);
+            services.AddSingleton<IRoleStore<ApplicationRole>>(_ => Roles);
+        });
     }
 }
 

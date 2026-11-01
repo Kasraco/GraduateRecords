@@ -6,6 +6,7 @@ using GraduateRecords.Infrastructure.Health;
 using GraduateRecords.Infrastructure.Identity;
 using GraduateRecords.Infrastructure.Options;
 using GraduateRecords.Infrastructure.Persistence;
+using GraduateRecords.Infrastructure.Persistence.Seed;
 using GraduateRecords.Infrastructure.Time;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -116,6 +117,13 @@ public static class DependencyInjection
 
         services.TryAddScoped<ISecurityStampValidator, SecurityStampValidator<ApplicationUser>>();
         services.Replace(ServiceDescriptor.Scoped<IUserClaimsPrincipalFactory<ApplicationUser>, ApplicationUserClaimsPrincipalFactory>());
+
+        // UC2.3: idempotent canonical role/permission reconciliation (AGENTS
+        // §17; ADR-0017 §7-§8). Invoked once per application start from the
+        // composition root (Program.cs) — NOT a hosted service (AGENTS §19) —
+        // before the app serves requests and before the future ADR-0016
+        // bootstrap step, which assigns the now-guaranteed Administrator role.
+        services.AddScoped<RolePermissionReconciliation>();
 
         services.AddOptions<IdentityOptions>()
             .Configure<IServiceProvider>((options, provider) =>

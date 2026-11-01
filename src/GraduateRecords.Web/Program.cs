@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using GraduateRecords.Infrastructure;
 using GraduateRecords.Infrastructure.Logging;
+using GraduateRecords.Infrastructure.Persistence.Seed;
 using GraduateRecords.Web.Controllers;
 using GraduateRecords.Web.Infrastructure;
 using GraduateRecords.Web.Middleware;
@@ -195,6 +196,19 @@ app.MapControllerRoute(
 
 try
 {
+    // UC2.3 (AGENTS §17 idempotent seed; ADR-0017 §7-§8): canonical
+    // role/permission reconciliation runs before the application serves any
+    // request and before the future ADR-0016 bootstrap step (bootstrap assigns
+    // the Administrator role, so the catalog must exist first). A failure
+    // aborts startup — the app must never serve with an unverified
+    // authorization catalog (fail-closed). Not a hosted service (AGENTS §19).
+    using (var reconciliationScope = app.Services.CreateScope())
+    {
+        await reconciliationScope.ServiceProvider
+            .GetRequiredService<RolePermissionReconciliation>()
+            .RunAsync(app.Lifetime.ApplicationStopping);
+    }
+
     await app.RunAsync();
 }
 finally
