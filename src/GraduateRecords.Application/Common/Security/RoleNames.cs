@@ -13,4 +13,25 @@ public static class RoleNames
     public const string GraduateStaff = "GraduateStaff";
 
     public const string Administrator = "Administrator";
+
+    /// <summary>
+    /// Every supported canonical role, in canonical order (ADR-0017 §2). A
+    /// property rather than a field, so the reflection-based catalog tests that
+    /// enumerate the string constants still see exactly three names.
+    /// </summary>
+    public static IReadOnlyList<string> AllSupported { get; } = [Student, GraduateStaff, Administrator];
+
+    /// <summary>
+    /// The supported-role set of ADR-0017 §11: only these code-defined canonical
+    /// names may ever be granted or revoked (no arbitrary role creation or
+    /// editing exists in v1, §10). Ordinal, case-sensitive comparison — a
+    /// non-canonical spelling is unsupported and therefore never granted
+    /// (fail-closed, ADR-0017 §21). This is the single validation source for
+    /// role input.
+    /// </summary>
+    public static bool IsSupported(string? roleName) =>
+        roleName is not null &&
+        (string.Equals(roleName, Student, StringComparison.Ordinal)
+         || string.Equals(roleName, GraduateStaff, StringComparison.Ordinal)
+         || string.Equals(roleName, Administrator, StringComparison.Ordinal));
 }

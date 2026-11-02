@@ -29,7 +29,14 @@ public sealed class ApplicationUserClaimsPrincipalFactory(
     IOptions<IdentityOptions> optionsAccessor)
     : UserClaimsPrincipalFactory<ApplicationUser, ApplicationRole>(userManager, roleManager, optionsAccessor)
 {
-    public const string FullNameClaimType = "full_name";
+    /// <summary>
+    /// Display-name claim type (AGENTS §14 <c>ActorDisplayName</c>). The value
+    /// is defined once in Application (<see cref="Application.Common.Security.SessionClaims"/>
+    /// — Web's <c>ICurrentUser</c> must read the same string without referencing
+    /// this assembly) and aliased here so existing call sites and tests keep
+    /// working unchanged.
+    /// </summary>
+    public const string FullNameClaimType = Application.Common.Security.SessionClaims.FullName;
 
     protected override async Task<ClaimsIdentity> GenerateClaimsAsync(ApplicationUser user)
     {

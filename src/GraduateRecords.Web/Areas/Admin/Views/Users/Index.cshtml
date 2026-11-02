@@ -1,0 +1,135 @@
+@model GraduateRecords.Web.Models.Admin.UsersIndexViewModel
+@{
+    ViewData["Title"] = "کاربران";
+    Layout = "_AdminLayout";
+}
+
+<header class="flex flex-wrap items-start justify-between gap-3">
+    <div class="space-y-1">
+        <h1 class="text-2xl font-bold text-foreground">کاربران</h1>
+        <p class="text-sm leading-6 text-muted-foreground">
+            فقط اطلاعات حساب‌ها نمایش داده می‌شود؛ شناسه ملی همیشه پنهان است.
+        </p>
+    </div>
+    <a asp-area="Admin" asp-controller="Users" asp-action="Create"
+       class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden">
+        ایجاد کاربر
+    </a>
+</header>
+
+<form method="get" asp-area="Admin" asp-controller="Users" asp-action="Index"
+      class="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-xs">
+    <div class="min-w-56 flex-1 space-y-1">
+        <label for="q" class="block text-sm font-medium text-foreground">جستجو</label>
+        <input id="q" name="q" value="@Model.Query" placeholder="نام یا شناسه ملی"
+               class="h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden" />
+        <p class="text-xs text-muted-foreground">نام به‌صورت بخشی از عبارت و شناسه ملی به‌صورت دقیق جستجو می‌شود.</p>
+    </div>
+    <button type="submit"
+            class="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden">
+        جستجو
+    </button>
+    @if (!string.IsNullOrEmpty(Model.Query))
+    {
+        <a asp-area="Admin" asp-controller="Users" asp-action="Index"
+           class="inline-flex h-10 items-center justify-center rounded-md border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden">
+            پاک‌کردن جستجو
+        </a>
+    }
+</form>
+
+@if (Model.Users.Count == 0)
+{
+    <div class="rounded-xl border border-border bg-card p-8 text-center shadow-xs" role="status">
+        @if (string.IsNullOrEmpty(Model.Query))
+        {
+            <p class="text-base font-medium text-foreground">هنوز کاربری ثبت نشده است.</p>
+            <p class="mt-2 text-sm leading-6 text-muted-foreground">نخستین کاربر را با دکمهٔ «ایجاد کاربر» بسازید.</p>
+        }
+        else
+        {
+            <p class="text-base font-medium text-foreground">کاربری با این عبارت پیدا نشد.</p>
+            <p class="mt-2 text-sm leading-6 text-muted-foreground">عبارت جستجو را تغییر دهید یا آن را پاک کنید.</p>
+        }
+    </div>
+}
+else
+{
+    <div class="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
+        <table class="w-full text-sm leading-6">
+            <caption class="sr-only">فهرست کاربران</caption>
+            <thead class="border-b border-border bg-secondary text-start">
+                <tr class="text-start text-xs font-medium text-muted-foreground">
+                    <th scope="col" class="px-4 py-3 text-start font-medium">نام و نام خانوادگی</th>
+                    <th scope="col" class="px-4 py-3 text-start font-medium">شناسه ملی</th>
+                    <th scope="col" class="px-4 py-3 text-start font-medium">نوع حساب</th>
+                    <th scope="col" class="px-4 py-3 text-start font-medium">نقش‌ها</th>
+                    <th scope="col" class="px-4 py-3 text-end font-medium">عملیات</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+                @foreach (var user in Model.Users)
+                {
+                    <tr class="hover:bg-secondary/60">
+                        <td class="px-4 py-3 font-medium text-foreground">@user.FullName</td>
+                        <td class="px-4 py-3 text-end font-normal text-foreground sm:text-start">
+                            <span dir="ltr" class="tabular-nums">@user.NationalIdMasked</span>
+                        </td>
+                        <td class="px-4 py-3 text-muted-foreground">@AdminDisplayLabels.Kind(user.Kind)</td>
+                        <td class="px-4 py-3">
+                            <span class="flex flex-wrap gap-1">
+                                @if (user.Roles.Count == 0)
+                                {
+                                    <span class="text-xs text-muted-foreground">بدون نقش</span>
+                                }
+                                else
+                                {
+                                    @foreach (var role in user.Roles)
+                                    {
+                                        <span class="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+                                            @AdminDisplayLabels.Role(role)
+                                        </span>
+                                    }
+                                }
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-end">
+                            <a asp-area="Admin" asp-controller="Users" asp-action="Details" asp-route-id="@user.Id"
+                               class="inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden">
+                                جزئیات
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Model.TotalCount > 0)
+    {
+        <nav aria-label="صفحه‌بندی" class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm text-muted-foreground">
+                صفحهٔ @AdminDisplayLabels.PersianDigits(Model.Page) از @AdminDisplayLabels.PersianDigits(Model.TotalPages)
+                — @AdminDisplayLabels.PersianDigits(Model.TotalCount) مورد
+            </p>
+            <div class="flex gap-2">
+                @if (Model.HasPrevious)
+                {
+                    <a asp-area="Admin" asp-controller="Users" asp-action="Index"
+                       asp-route-q="@Model.Query" asp-route-page="@(Model.Page - 1)"
+                       class="inline-flex h-10 items-center justify-center rounded-md border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden">
+                        صفحهٔ قبلی
+                    </a>
+                }
+                @if (Model.HasNext)
+                {
+                    <a asp-area="Admin" asp-controller="Users" asp-action="Index"
+                       asp-route-q="@Model.Query" asp-route-page="@(Model.Page + 1)"
+                       class="inline-flex h-10 items-center justify-center rounded-md border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden">
+                        صفحهٔ بعدی
+                    </a>
+                }
+            </div>
+        </nav>
+    }
+}

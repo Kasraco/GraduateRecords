@@ -1,7 +1,9 @@
 using System.Threading.RateLimiting;
+using GraduateRecords.Application.Common.Security;
 using GraduateRecords.Infrastructure;
 using GraduateRecords.Infrastructure.Logging;
 using GraduateRecords.Infrastructure.Persistence.Seed;
+using GraduateRecords.Web.Authorization;
 using GraduateRecords.Web.Controllers;
 using GraduateRecords.Web.Infrastructure;
 using GraduateRecords.Web.Middleware;
@@ -115,6 +117,19 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
+// Phase 1A UC3 authorization plumbing (ADR-0004 §10.2 explicit policies;
+// ADR-0017 §5/§21): the permission policy provider is registered AFTER
+// AddAuthorization so it wins the single-service resolution (AddAuthorization
+// TryAdds its default provider), and it delegates every non-permission policy
+// name back to that default. The handler evaluates a requirement against the
+// session's `permission` claims only — never UserKind or the authentication
+// method (ADR-0017 §1/§4).
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+
+// ARCHITECTURE §15: handlers read the actor through ICurrentUser only.
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
@@ -189,6 +204,20 @@ if (app.Environment.IsEnvironment("Testing"))
     app.MapGet("/__test/throw", static (HttpContext _) =>
         throw new InvalidOperationException("test-exception-secret-123456")).AllowAnonymous();
 }
+
+// AGENTS §3: Web is organized by audience — the administration screens live in
+// the Admin area (UC3). URL shape stays /Admin/... so links and tests read the
+// same as every other conventional route. Two load-bearing details:
+//   1. `area` is a route DEFAULT (not a data token) so it is part of RouteData
+//      for matching, view location and ambient link generation.
+//   2. This route is registered BEFORE the catch-all default route. Link
+//      generation tries routes in registration order and drops ambient values a
+//      route does not declare — with the default route first, RedirectToAction
+//      would emit /Users/... without the area prefix.
+app.MapControllerRoute(
+    name: "adminArea",
+    pattern: "Admin/{controller}/{action=Index}/{id?}",
+    defaults: new { area = "Admin" });
 
 app.MapControllerRoute(
     name: "default",

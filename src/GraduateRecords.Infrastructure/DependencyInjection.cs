@@ -174,6 +174,13 @@ public static class DependencyInjection
             .Configure<IServiceProvider>((options, provider) => ConfigureApplicationCookie(options, provider));
 
         services.AddScoped<ILocalUserDirectory, LocalUserDirectory>();
+
+        // Phase 1A UC3 (AGENTS §2): the ONE port through which admin
+        // user/role/management reaches Identity. It owns the last-Administrator
+        // transaction and lock (ADR-0017 §17–§19); no other identity wrapper
+        // exists.
+        services.AddScoped<IIdentityAdministration, IdentityAdministration>();
+
         services.AddScoped<IAuditWriter, SerilogAuditWriter>();
         services.AddScoped<IClock, Time.SystemClock>();
 

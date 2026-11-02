@@ -1,4 +1,5 @@
 using System.Net;
+using GraduateRecords.Application.Common.Identity;
 using GraduateRecords.Infrastructure.Identity;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -48,6 +49,15 @@ public sealed class GraduateRecordsWebApplicationFactory : WebApplicationFactory
             services.RemoveAll<IRoleStore<ApplicationRole>>();
             services.AddSingleton(Roles);
             services.AddSingleton<IRoleStore<ApplicationRole>>(_ => Roles);
+
+            // UC3: the production IIdentityAdministration needs a real SQL Server
+            // transaction plus the UPDLOCK/HOLDLOCK row lock of ADR-0017 §17–§19,
+            // which CI does not have (AGENTS §22). HTTP-level tests therefore run
+            // against an in-memory double implementing the same port contract;
+            // the locking behaviour itself is covered by
+            // SqlServerLastAdministratorInvariantTests.
+            services.RemoveAll<IIdentityAdministration>();
+            services.AddScoped<IIdentityAdministration, InMemoryIdentityAdministration>();
 
             // Test-only: lets each test use its own rate-limiter partition (AGENTS §18).
             services.AddSingleton<IStartupFilter, TestClientIpStartupFilter>();

@@ -1,0 +1,56 @@
+@model GraduateRecords.Web.Models.Admin.RolesIndexViewModel
+@{
+    ViewData["Title"] = "نقش‌ها و دسترسی‌ها";
+    Layout = "_AdminLayout";
+}
+
+<header class="space-y-1">
+    <h1 class="text-2xl font-bold text-foreground">نقش‌ها و دسترسی‌ها</h1>
+    <p class="text-sm leading-6 text-muted-foreground">
+        دسترسی‌های هر نقش به‌صورت کد تعریف شده‌اند و در این نسخه قابل ویرایش نیستند؛ فقط همین نمایش.
+    </p>
+</header>
+
+<div role="note" class="rounded-md border border-border bg-info-soft px-3 py-2 text-sm leading-6 text-info">
+    اعطای نقش به کاربران از صفحهٔ «کاربران» انجام می‌شود. تغییر دسترسی‌های خود نقش‌ها در این نسخه وجود ندارد.
+</div>
+
+<div class="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
+    <table class="w-full text-sm leading-6">
+        <caption class="sr-only">فهرست نقش‌ها و دسترسی‌های آن‌ها</caption>
+        <thead class="border-b border-border bg-secondary">
+            <tr class="text-xs font-medium text-muted-foreground">
+                <th scope="col" class="px-4 py-3 text-start font-medium">نقش</th>
+                <th scope="col" class="px-4 py-3 text-start font-medium">دسترسی‌ها</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-border">
+            @foreach (var role in Model.Roles)
+            {
+                <tr class="hover:bg-secondary/60">
+                    <td class="px-4 py-3 align-top">
+                        <span class="block font-medium text-foreground">@AdminDisplayLabels.Role(role.RoleName)</span>
+                        <span dir="ltr" class="mt-1 block text-end text-xs text-muted-foreground sm:text-start">@role.RoleName</span>
+                    </td>
+                    <td class="px-4 py-3 align-top">
+                        @if (role.Permissions.Count == 0)
+                        {
+                            <span class="text-muted-foreground">@AdminDisplayLabels.NoPermissions</span>
+                        }
+                        else
+                        {
+                            <span class="flex flex-wrap gap-1.5">
+                                @foreach (var permission in role.Permissions)
+                                {
+                                    <span dir="ltr" class="inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
+                                        @permission
+                                    </span>
+                                }
+                            </span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

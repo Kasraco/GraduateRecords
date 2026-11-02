@@ -23,4 +23,19 @@ public static class AuditActions
 
     /// <summary>Failed local National ID + password sign-in, audited by category only (ADR-0015 §8, §16).</summary>
     public const string AuthenticationLocalSignInFailed = "Authentication.LocalSignInFailed";
+
+    // --- Phase 1A Use Case 3: user/role administration (ADR-0017 §22 names the
+    // conceptual events; the constants are added in the implementing slice).
+    // These are best-effort structured security events in Phase 1A — the durable
+    // append-only AuditLog arrives with Phase 1C (ADR-0016 §12.4, ADR-0017 §22).
+    // Never any credential material, token or unmasked National ID (AGENTS §14).
+
+    /// <summary>Administrator created a local user account (ADR-0002 §2.1/§9).</summary>
+    public const string AuthorizationUserCreated = "Authorization.UserCreated";
+
+    /// <summary>A supported role was granted to a user (ADR-0002 §9, ADR-0017 §10/§22).</summary>
+    public const string AuthorizationRoleGranted = "Authorization.RoleGranted";
+
+    /// <summary>A supported role was revoked from a user (ADR-0002 §9, ADR-0017 §10/§22).</summary>
+    public const string AuthorizationRoleRevoked = "Authorization.RoleRevoked";
 }

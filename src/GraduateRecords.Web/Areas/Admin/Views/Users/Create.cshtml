@@ -1,0 +1,94 @@
+@model GraduateRecords.Web.Models.Admin.CreateUserViewModel
+@{
+    ViewData["Title"] = "ایجاد کاربر";
+    Layout = "_AdminLayout";
+}
+
+<header class="space-y-1">
+    <h1 class="text-2xl font-bold text-foreground">ایجاد کاربر</h1>
+    <p class="text-sm leading-6 text-muted-foreground">
+        حساب کارمند یا مدیر سامانه بسازید. دانشجویان به‌صورت خودکار هنگام نخستین ورود ساخته می‌شوند.
+    </p>
+</header>
+
+<form asp-area="Admin" asp-controller="Users" asp-action="Create" method="post"
+      class="max-w-xl space-y-6 rounded-xl border border-border bg-card p-4 shadow-xs md:p-6">
+    <div asp-validation-summary="All"
+         class="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
+         role="alert"></div>
+
+    <div class="space-y-1">
+        <label asp-for="NationalId" class="block text-sm font-medium text-foreground">
+            شناسه ملی <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(اجباری)</span>
+        </label>
+        <input asp-for="NationalId" dir="ltr" inputmode="numeric" autocomplete="off" placeholder="0012345679"
+               class="h-11 w-full rounded-md border border-input bg-card px-3 text-end text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden" />
+        <span asp-validation-for="NationalId" class="text-sm text-destructive"></span>
+        <p class="text-xs text-muted-foreground">شناسه ملی باید یکتا باشد و ارقام فارسی نیز پذیرفته می‌شود.</p>
+    </div>
+
+    <div class="space-y-1">
+        <label asp-for="FullName" class="block text-sm font-medium text-foreground">
+            نام و نام خانوادگی <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(اجباری)</span>
+        </label>
+        <input asp-for="FullName" autocomplete="off"
+               class="h-11 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden" />
+        <span asp-validation-for="FullName" class="text-sm text-destructive"></span>
+    </div>
+
+    <div class="space-y-1">
+        <label asp-for="MobileNumber" class="block text-sm font-medium text-foreground">
+            شماره موبایل <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(اجباری)</span>
+        </label>
+        <input asp-for="MobileNumber" dir="ltr" inputmode="tel" autocomplete="off" placeholder="09123456789"
+               class="h-11 w-full rounded-md border border-input bg-card px-3 text-end text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden" />
+        <span asp-validation-for="MobileNumber" class="text-sm text-destructive"></span>
+    </div>
+
+    <div class="space-y-1">
+        <label asp-for="Kind" class="block text-sm font-medium text-foreground">
+            نوع حساب <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(اجباری)</span>
+        </label>
+        <select asp-for="Kind"
+                class="h-11 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden">
+            @foreach (var kind in Model.AllowedKinds)
+            {
+                <option value="@kind" selected="@(Model.Kind == kind ? "selected" : null)">@AdminDisplayLabels.Kind(kind)</option>
+            }
+        </select>
+        <span asp-validation-for="Kind" class="text-sm text-destructive"></span>
+        <p class="text-xs text-muted-foreground">نوع حساب فقط تعیین‌کنندهٔ روش‌های ورود مجاز است و به‌تنهایی هیچ دسترسی‌ای نمی‌دهد.</p>
+    </div>
+
+    <fieldset class="space-y-2">
+        <legend class="text-sm font-medium text-foreground">نقش‌ها</legend>
+        <p class="text-xs text-muted-foreground">دسترسی‌های هر نقش را در صفحهٔ «نقش‌ها و دسترسی‌ها» ببینید.</p>
+        <div class="space-y-2 pt-1">
+            @foreach (var role in Model.SupportedRoles)
+            {
+                <label class="flex items-center gap-2 text-sm text-foreground">
+                    <input type="checkbox" name="Roles" value="@role"
+                           checked="@(Model.Roles.Contains(role) ? "checked" : null)"
+                           class="h-5 w-5 rounded-xs border-input accent-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden" />
+                    @AdminDisplayLabels.Role(role)
+                </label>
+            }
+        </div>
+        <span asp-validation-for="Roles" class="text-sm text-destructive"></span>
+    </fieldset>
+
+    <div class="rounded-md border border-border bg-secondary px-3 py-2 text-xs leading-6 text-secondary-foreground">
+        گذرواژه‌ای برای کاربر ساخته نمی‌شود؛ راه‌اندازی گذرواژهٔ محلی یک عملیات جداگانه و مجوزدار است.
+    </div>
+
+    <div class="flex flex-wrap gap-3 border-t border-border pt-5">
+        <button type="submit"
+                class="h-11 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden">
+            ایجاد کاربر
+        </button>
+        <a asp-area="Admin" asp-controller="Users" asp-action="Index"
+           class="inline-flex h-11 items-center justify-center rounded-md border border-border bg-card px-5 text-sm font-medium text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden">
+            انصراف
+        </a>
+    </div>
+</form>

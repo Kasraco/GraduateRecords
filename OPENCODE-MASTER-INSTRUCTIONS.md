@@ -74,3 +74,22 @@ Deviations from AGENTS/ARCHITECTURE/DESIGN: none | list + why + ADR
 Out-of-scope issues noticed (not changed): <list>
 Suggested next slice: <name>
 ```
+
+## 13.Git Commit Message Preparation
+
+After completing each task, Use Case, or implementation phase:
+
+1. Inspect `git status` and review all changes using `git diff` and `git diff --cached`.
+2. Analyze the actual changes, not just the task description.
+3. If the changes form a coherent and complete unit, propose a concise commit message following Conventional Commits.
+4. Use an appropriate type such as `feat`, `fix`, `refactor`, `test`, `docs`, or `chore`.
+5. Include the suggested commit message in the completion report, preferably in a copyable code block.
+6. Briefly explain what the commit covers.
+7. If changes are incomplete, unrelated, or unsafe to commit together, do not suggest a single commit. Explain why and recommend splitting or completing the changes first.
+
+**Important restrictions:**
+- Never execute `git commit` or `git push` unless the user explicitly requests it.
+- Never stage files automatically.
+- Never include `appsettings.Development.json` or other owner-local configuration files in the proposed commit.
+- Never claim that changes are ready to commit without inspecting the actual Git diff.
+- If there are no changes, do not generate a commit message.

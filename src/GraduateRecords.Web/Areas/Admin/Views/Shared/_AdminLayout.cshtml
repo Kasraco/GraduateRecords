@@ -1,0 +1,54 @@
+@{
+    // Nested layout: the area shell renders inside the shared application
+    // layout (DESIGN §2 staff/admin shell). The full sidebar/top-bar shell
+    // arrives with Phase 1D; Phase 1A ships the section navigation and the
+    // page-order shell only.
+    Layout = "_Layout";
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var usersActive = string.Equals(currentController, "Users", StringComparison.OrdinalIgnoreCase);
+    var rolesActive = string.Equals(currentController, "Roles", StringComparison.OrdinalIgnoreCase);
+}
+
+<div class="space-y-6">
+    @* PRG toast (DESIGN §8): rendered from TempData after a Post-Redirect-Get.
+        Plain text, Razor-encoded; no script and no dynamic HTML. It lives in the
+        admin shell rather than the shared layout so pages that never use TempData
+        (notably the login flow) do not issue a TempData cookie. *@
+    @if (TempData[TempDataKeys.Success] is string successMessage)
+    {
+        <div role="status" class="rounded-md border border-success bg-success-soft px-3 py-2 text-sm leading-6 text-success">
+            @successMessage
+        </div>
+    }
+    @if (TempData[TempDataKeys.Error] is string errorMessage)
+    {
+        <div role="alert" class="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive">
+            @errorMessage
+        </div>
+    }
+
+    <nav aria-label="مسیر صفحه" class="text-sm text-muted-foreground">
+        <ol class="flex flex-wrap items-center gap-1">
+            <li><a class="hover:text-foreground hover:underline" asp-area="" asp-controller="Home" asp-action="Index">خانه</a></li>
+            <li aria-hidden="true">/</li>
+            <li class="text-foreground">مدیریت سامانه</li>
+        </ol>
+    </nav>
+
+    <nav aria-label="مدیریت سامانه" class="flex flex-wrap gap-1 border-b border-border">
+        <a asp-area="Admin" asp-controller="Users" asp-action="Index"
+           aria-current="@(usersActive ? "page" : null)"
+           class="rounded-t-md px-4 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden @(usersActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground")">
+            کاربران
+        </a>
+        <a asp-area="Admin" asp-controller="Roles" asp-action="Index"
+           aria-current="@(rolesActive ? "page" : null)"
+           class="rounded-t-md px-4 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden @(rolesActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground")">
+            نقش‌ها و دسترسی‌ها
+        </a>
+    </nav>
+
+    @RenderBody()
+</div>
+
+<script type="module" src="~/js/admin/forms.js" asp-append-version="true"></script>

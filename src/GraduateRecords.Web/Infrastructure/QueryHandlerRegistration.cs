@@ -6,6 +6,9 @@ namespace GraduateRecords.Web.Infrastructure;
 /// <summary>
 /// AGENTS §4: handlers are plain classes registered by assembly scan and injected
 /// into controllers by their interface. No mediator or pipeline framework exists.
+/// Both handler contracts are scanned — queries (<see cref="IQueryHandler{TQuery,TResult}"/>
+/// and commands (<see cref="ICommandHandler{TCommand,TResult}"/>) — since UC3
+/// introduced the first state-changing use cases.
 /// </summary>
 public static class QueryHandlerRegistration
 {
@@ -18,7 +21,9 @@ public static class QueryHandlerRegistration
                      .Where(static type => type is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false }))
         {
             var handlerServices = implementation.GetInterfaces()
-                .Where(static iface => iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IQueryHandler<,>))
+                .Where(static iface => iface.IsGenericType
+                                       && (iface.GetGenericTypeDefinition() == typeof(IQueryHandler<,>)
+                                           || iface.GetGenericTypeDefinition() == typeof(ICommandHandler<,>)))
                 .ToList();
 
             foreach (var handlerService in handlerServices)
