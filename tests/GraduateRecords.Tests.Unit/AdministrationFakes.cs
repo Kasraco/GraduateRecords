@@ -99,11 +99,20 @@ internal sealed class FakeCurrentUser : ICurrentUser
 
     public IReadOnlyCollection<string> Permissions { get; set; } = Array.Empty<string>();
 
+    /// <summary>
+    /// UC2.5 restrictive-fake-scope hook (ARCHITECTURE §10: "A test with a
+    /// restrictive fake scope is mandatory"): when set, the fake reports this
+    /// scope instead of the role-derived one, so a test can prove that the
+    /// access rules read the <see cref="StaffScope"/> value — not the role
+    /// names behind it. Default (<c>null</c>) keeps the production derivation.
+    /// </summary>
+    public StaffScope? ScopeOverride { get; set; }
+
     public bool HasPermission(string permission) =>
         IsAuthenticated && !string.IsNullOrEmpty(permission)
         && Permissions.Contains(permission, StringComparer.Ordinal);
 
-    public StaffScope StaffScope => ScopeExtensions.FromRoles(Roles);
+    public StaffScope StaffScope => ScopeOverride ?? ScopeExtensions.FromRoles(Roles);
 }
 
 /// <summary>Captures audit entries instead of writing them.</summary>

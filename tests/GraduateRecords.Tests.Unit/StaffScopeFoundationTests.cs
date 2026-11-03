@@ -5,8 +5,8 @@ namespace GraduateRecords.Tests.Unit;
 /// <summary>
 /// UC2.1 StaffScope foundation (ADR-0017 StaffScope rule): the exact Phase 1
 /// enum values and the ordinal, fail-closed role → scope derivation.
-/// Comparison/resource-access APIs (WithinScope/CanAccess) are deferred to
-/// UC2.5 and are deliberately not exercised here.
+/// The comparison/resource-access APIs (<c>WithinScope</c>/<c>CanAccess</c>)
+/// are exercised separately in <see cref="StaffScopeAccessTests"/> (UC2.5).
 /// </summary>
 public sealed class StaffScopeFoundationTests
 {

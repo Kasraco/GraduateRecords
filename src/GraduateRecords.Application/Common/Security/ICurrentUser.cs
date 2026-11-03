@@ -35,6 +35,11 @@ public interface ICurrentUser
     /// </summary>
     bool HasPermission(string permission);
 
-    /// <summary>Phase 1 scope derived from role names (ADR-0017 StaffScope rule).</summary>
+    /// <summary>
+    /// Phase 1 scope derived from role names (ADR-0017 StaffScope rule).
+    /// Handlers gate queries and by-id reads with
+    /// <c>ScopeExtensions.WithinScope</c>/<c>ScopeExtensions.CanAccess</c>
+    /// (ARCHITECTURE §10) and map <c>false</c> to <c>NotFound</c>.
+    /// </summary>
     StaffScope StaffScope { get; }
 }

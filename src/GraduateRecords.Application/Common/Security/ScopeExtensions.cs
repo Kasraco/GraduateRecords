@@ -1,14 +1,19 @@
 namespace GraduateRecords.Application.Common.Security;
 
 /// <summary>
-/// Scope foundation for the ARCHITECTURE §10 <c>ScopeExtensions</c> hook
-/// (ROADMAP Phase 1A feature list). UC2.1 ships only the role-to-scope
-/// derivation <see cref="FromRoles"/>: the comparison/resource-access
-/// counterparts <c>WithinScope</c>/<c>CanAccess</c> are deliberately deferred
-/// to UC2.5, where <c>ICurrentUser</c> exists and their semantics can be
-/// defined against actual authorization needs instead of guessed against
-/// future resource types (ADR-0017 §16 defers resource authorization to the
-/// owning feature phases).
+/// Shared staff-scope decisions for the ARCHITECTURE §10 hook
+/// (<c>ICurrentUser.StaffScope</c> + <c>ScopeExtensions.WithinScope/CanAccess</c>):
+/// <list type="bullet">
+/// <item><see cref="FromRoles"/> derives the Phase 1 scope from canonical role
+/// names (ADR-0017 StaffScope rule);</item>
+/// <item><see cref="WithinScope"/> gates staff <b>queries</b>;</item>
+/// <item><see cref="CanAccess"/> gates staff <b>by-id</b> handlers, composing
+/// ownership and scope exactly as ADR-0017 §16 prescribes.</item>
+/// </list>
+/// Handlers call these and map <c>false</c> to <c>NotFound</c>
+/// (ARCHITECTURE §10: out-of-scope ⇒ NotFound; ADR-0017 §16). Permission is a
+/// separate, earlier check (<c>ICurrentUser.HasPermission</c>) — scope never
+/// substitutes for a missing permission and vice versa (ADR-0017 §1, §21).
 /// </summary>
 public static class ScopeExtensions
 {
@@ -39,4 +44,63 @@ public static class ScopeExtensions
 
         return StaffScope.None;
     }
+
+    /// <summary>
+    /// Query gate (ARCHITECTURE §10: "<c>WithinScope</c> … used by every staff
+    /// query"): true when <paramref name="requiredScope"/> — the scope the
+    /// query reads — lies within the actor's <paramref name="actorScope"/>.
+    /// <para>
+    /// Phase 1 (ADR-0004 §4.1): student data lives in
+    /// <see cref="StaffScope.AllStudents"/> and no finer scope exists, so the
+    /// complete rule is: <c>AllStudents</c> covers every requirement; <c>None</c>
+    /// covers only a <c>None</c> requirement (fail-closed for the
+    /// <c>AllStudents</c> case). Undefined enum values fail closed
+    /// (ADR-0017 §21). Out-of-scope ⇒ the handler returns <c>NotFound</c>.
+    /// </para>
+    /// Ownership is intentionally not part of this method: queries express
+    /// ownership in their filter (own rows only), never through scope
+    /// (ADR-0017 §16 separates Ownership from StaffScope).
+    /// </summary>
+    public static bool WithinScope(this StaffScope actorScope, StaffScope requiredScope)
+    {
+        // Fail-closed on undefined values (ADR-0017 §21): an unknown scope
+        // value on either side must never grant access.
+        if (!IsDefined(actorScope) || !IsDefined(requiredScope))
+        {
+            return false;
+        }
+
+        return actorScope == StaffScope.AllStudents
+            || requiredScope == StaffScope.None;
+    }
+
+    /// <summary>
+    /// By-id gate (ARCHITECTURE §10: "<c>CanAccess</c> … by-id handler"):
+    /// composes ADR-0017 §16 for one loaded resource —
+    /// <c>ownedByActor</c> (Ownership row: a student's own resource) OR
+    /// <see cref="WithinScope"/> over <paramref name="resourceScope"/>
+    /// (StaffScope row: GraduateStaff over student data).
+    /// <para>
+    /// The caller determines ownership server-side (resource owner id ==
+    /// <c>ICurrentUser.UserId</c>, never request data) and passes it in;
+    /// permission is checked separately before this call. Administrator never
+    /// passes the scope row (its scope is <c>None</c>, ADR-0017 §12) —
+    /// Administrator does not bypass ownership/scope (ADR-0017 §16).
+    /// <c>false</c> ⇒ the handler returns <c>NotFound</c> (never leaks
+    /// existence, ADR-0004 §10.3).
+    /// </para>
+    /// Ownership grants access independently of scope (the student-owner row
+    /// of ADR-0017 §16 requires no scope), so an undefined
+    /// <paramref name="resourceScope"/> still yields <c>true</c> for an owner;
+    /// for a non-owner every undefined value fails closed.
+    /// </summary>
+    public static bool CanAccess(
+        this StaffScope actorScope,
+        StaffScope resourceScope,
+        bool ownedByActor) =>
+        ownedByActor || actorScope.WithinScope(resourceScope);
+
+    /// <summary>Only the two documented Phase 1 values participate (ADR-0017 StaffScope rule).</summary>
+    private static bool IsDefined(StaffScope scope) =>
+        scope is StaffScope.None or StaffScope.AllStudents;
 }
