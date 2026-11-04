@@ -1,11 +1,16 @@
+using GraduateRecords.Application.Common.Auditing;
 using GraduateRecords.Application.Common.Identity;
 using GraduateRecords.Application.Common.Security;
+using GraduateRecords.Application.Common.Time;
 using GraduateRecords.Infrastructure.Identity;
 using GraduateRecords.Infrastructure.Persistence;
+using GraduateRecords.Infrastructure.Time;
+using GraduateRecords.Web.Infrastructure;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace GraduateRecords.Tests.Integration;
 
@@ -24,15 +29,24 @@ namespace GraduateRecords.Tests.Integration;
 public sealed class SqlServerTestDatabase : IAsyncDisposable
 {
     private readonly string _connectionString;
+    private readonly string _baseConnectionString;
 
-    private SqlServerTestDatabase(string name, string connectionString)
+    private SqlServerTestDatabase(string name, string baseConnectionString, string connectionString)
     {
         Name = name;
+        _baseConnectionString = baseConnectionString;
         _connectionString = connectionString;
     }
 
     /// <summary>The generated database name — never an application database name.</summary>
     public string Name { get; }
+
+    /// <summary>
+    /// Connection string of the generated database. Test-owned raw connections
+    /// need it: barriers, probes and DMV reads never go through EF (approved
+    /// SQL-G2/A evidence design).
+    /// </summary>
+    public string ConnectionString => _connectionString;
 
     /// <summary>Creates the database, applies the real migrations and returns it.</summary>
     public static async Task<SqlServerTestDatabase> CreateAsync(CancellationToken cancellationToken = default)
@@ -56,19 +70,66 @@ public sealed class SqlServerTestDatabase : IAsyncDisposable
             await context.Database.MigrateAsync(cancellationToken);
         }
 
-        return new SqlServerTestDatabase(name, connectionString);
+        return new SqlServerTestDatabase(name, baseConnectionString!, connectionString);
+    }
+
+    /// <summary>
+    /// Test-only isolation setup for SQL-G2-B (approved design): enables
+    /// <c>READ_COMMITTED_SNAPSHOT</c> — the ADR-0007 §3.2 target configuration —
+    /// on this disposable database and then <b>verifies</b> it. Fails closed
+    /// (throws) when it cannot be enabled or verified: the revoke-versus-
+    /// bootstrap concurrency test must never run in a mode where the handler's
+    /// pre-port reads would block before the role-row lock.
+    /// </summary>
+    public async Task EnableReadCommittedSnapshotAsync(CancellationToken cancellationToken = default)
+    {
+        await ExecuteOnMasterAsync(
+            _baseConnectionString,
+            $"ALTER DATABASE [{Name}] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE",
+            cancellationToken);
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT CONVERT(bit, is_read_committed_snapshot_on) FROM sys.databases WHERE name = DB_NAME();";
+
+        var enabled = await command.ExecuteScalarAsync(cancellationToken);
+        if (enabled is not true)
+        {
+            throw new InvalidOperationException(
+                $"READ_COMMITTED_SNAPSHOT could not be enabled or verified on '{Name}'; " +
+                "the SQL-G2-B concurrency test fails closed without it.");
+        }
     }
 
     /// <summary>Production-shaped DI: the real Identity stores and the real port.</summary>
-    public ServiceProvider BuildServiceProvider()
+    public ServiceProvider BuildServiceProvider(Action<IServiceCollection>? configure = null)
     {
+        var loggerProvider = new RecordingLoggerProvider();
+
         var services = new ServiceCollection();
-        services.AddLogging();
+        services.AddLogging(builder => builder.AddProvider(loggerProvider));
+        services.AddSingleton(loggerProvider);
         services.AddDbContext<AppDbContext>(options => options.UseSqlServer(_connectionString));
         services.AddIdentityCore<ApplicationUser>()
             .AddRoles<ApplicationRole>()
             .AddEntityFrameworkStores<AppDbContext>();
         services.AddScoped<IIdentityAdministration, IdentityAdministration>();
+
+        // T3c: the real bootstrap/revoke handlers under test and their ports.
+        // Nothing here replaces production behaviour — only test recorders and
+        // one actor fake are added; the port, the stores, the transaction and
+        // the role-row lock are the production ones.
+        services.AddScoped<ILocalUserDirectory, LocalUserDirectory>();
+        services.AddScoped<IClock, SystemClock>();
+        services.AddSingleton<RecordingAuditWriter>();
+        services.AddScoped<IAuditWriter>(provider => provider.GetRequiredService<RecordingAuditWriter>());
+        services.AddSingleton<BootstrapTestActor>();
+        services.AddScoped<ICurrentUser>(provider => provider.GetRequiredService<BootstrapTestActor>());
+        services.AddQueryHandlers(typeof(GraduateRecords.Application.AssemblyMarker).Assembly);
+
+        configure?.Invoke(services);
         return services.BuildServiceProvider();
     }
 

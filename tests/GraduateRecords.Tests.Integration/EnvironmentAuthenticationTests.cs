@@ -1,4 +1,5 @@
 using System.Net;
+using GraduateRecords.Application.Common.Identity;
 using GraduateRecords.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -34,6 +35,19 @@ public abstract class SsoConfiguredWebApplicationFactory : WebApplicationFactory
     /// </summary>
     public InMemoryRoleStore Roles { get; } = new();
 
+    /// <summary>
+    /// ADR-0016 bootstrap runs from Program.cs in every environment, and its
+    /// completion guard reads the effective-Administrator set through the real
+    /// <c>IIdentityAdministration</c> — which needs a database this host does
+    /// not have. The user store and the port are therefore swapped exactly like
+    /// the main test host, so the step runs against the in-memory double
+    /// (contract parity in <c>InMemoryIdentityAdministration</c>); SQL Server
+    /// concurrency evidence lives exclusively in the SQL Server tests.
+    /// </summary>
+    public InMemoryUserStore Users { get; }
+
+    public SsoConfiguredWebApplicationFactory() => Users = new InMemoryUserStore(Roles);
+
     protected abstract string EnvironmentName { get; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -46,6 +60,13 @@ public abstract class SsoConfiguredWebApplicationFactory : WebApplicationFactory
             services.AddSingleton(Roles);
             services.AddSingleton<IRoleStore<ApplicationRole>>(_ => Roles);
 
+            services.RemoveAll<IUserStore<ApplicationUser>>();
+            services.AddSingleton(Users);
+            services.AddSingleton<IUserStore<ApplicationUser>>(_ => Users);
+
+            services.RemoveAll<IIdentityAdministration>();
+            services.AddScoped<IIdentityAdministration, InMemoryIdentityAdministration>();
+
             services.Configure<OpenIdConnectOptions>(
                 OpenIdConnectDefaults.AuthenticationScheme,
                 options => options.BackchannelHttpHandler = FakeIdP);
@@ -57,6 +78,14 @@ public abstract class SsoConfiguredWebApplicationFactory : WebApplicationFactory
         builder.UseSetting("Identity:Oidc:UsePkce", "true");
         builder.UseSetting("ConnectionStrings:Default", StrictConnection);
         builder.UseSetting("FileStorage:RootPath", TestStorage.Root);
+
+        // D7 (ADR-0016 §14.2): Production/Staging are fail-closed without
+        // Bootstrap configuration once no Administrator role holder exists, so
+        // these hosts supply synthetic identity data — a checksum-valid
+        // National ID generated for this host and a fixed shape-valid mobile.
+        // Identity information only, never a credential (ADR-0016 §2.2).
+        builder.UseSetting("BootstrapAdministrator:NationalId", SsoTestFlow.NextNationalId());
+        builder.UseSetting("BootstrapAdministrator:MobileNumber", "09123456789");
     }
 
     protected override void Dispose(bool disposing)

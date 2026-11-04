@@ -50,6 +50,16 @@ public static class DependencyInjection
                 "ConnectionStrings:Default is missing, invalid, or violates database TLS requirements.")
             .ValidateOnStart();
 
+        // ADR-0016 §2.4: Bootstrap shape validation is environment-independent —
+        // partial or present-but-invalid values fail startup in EVERY
+        // environment. Whether an *absent* section is fatal depends on runtime
+        // state (an existing Administrator role holder) and is decided by the
+        // Application bootstrap step, never here.
+        services.AddOptions<BootstrapAdministratorOptions>()
+            .Bind(configuration.GetSection(BootstrapAdministratorOptions.SectionName))
+            .Validate(options => options.IsValid(), BootstrapAdministratorOptions.ValidationMessage)
+            .ValidateOnStart();
+
         services.AddDbContext<AppDbContext>((provider, options) =>
             options.UseSqlServer(provider.GetRequiredService<IOptions<DatabaseOptions>>().Value.Default,
                 sql => sql.UseCompatibilityLevel(170)));
@@ -121,8 +131,8 @@ public static class DependencyInjection
         // UC2.3: idempotent canonical role/permission reconciliation (AGENTS
         // §17; ADR-0017 §7-§8). Invoked once per application start from the
         // composition root (Program.cs) — NOT a hosted service (AGENTS §19) —
-        // before the app serves requests and before the future ADR-0016
-        // bootstrap step, which assigns the now-guaranteed Administrator role.
+        // before the app serves requests and before the ADR-0016 bootstrap
+        // step, which assigns the now-guaranteed Administrator role.
         services.AddScoped<RolePermissionReconciliation>();
 
         services.AddOptions<IdentityOptions>()

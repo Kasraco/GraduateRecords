@@ -102,6 +102,15 @@ public sealed class GraduateRecordsWebApplicationFactory : WebApplicationFactory
                 ["Identity:CookieLifetime:IdleMinutes"] = "30",
                 ["Identity:CookieLifetime:AbsoluteHours"] = "8",
                 ["Identity:LoginRateLimit:PermitsPerMinute"] = "10", // the decided value; tests isolate by client IP
+
+                // D7 (ADR-0016 §14.2): Testing is in the fail-closed group, so
+                // this host supplies synthetic Bootstrap identity data — a
+                // checksum-valid National ID generated for this factory and a
+                // fixed shape-valid mobile number. Identity information only,
+                // never a credential (ADR-0016 §2.2); real values never live in
+                // a committed file (§2.3).
+                ["BootstrapAdministrator:NationalId"] = SsoTestFlow.NextNationalId(),
+                ["BootstrapAdministrator:MobileNumber"] = "09123456789",
                 // OIDC is supplied as host settings above (see comment), so the
                 // scheme registration and the Login guard read one source of truth.
             });

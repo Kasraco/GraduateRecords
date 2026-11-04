@@ -14,7 +14,7 @@ namespace GraduateRecords.Infrastructure.Persistence.Seed;
 ///
 /// Runs once per application start from the composition root
 /// (<c>Program.cs</c>), before the application serves requests and before the
-/// future ADR-0016 Bootstrap Administrator step (bootstrap assigns the
+/// ADR-0016 Bootstrap Administrator step (bootstrap assigns the
 /// Administrator role, so the canonical catalog must exist first). For each of
 /// the three canonical roles it converges that role's <c>permission</c> claims
 /// to <see cref="RolePermissionCatalog"/> exactly: add missing values, remove

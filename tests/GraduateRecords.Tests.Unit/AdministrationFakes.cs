@@ -33,6 +33,11 @@ internal sealed class FakeIdentityAdministration : IIdentityAdministration
 
     public Result<string> CreateResult { get; set; } = Result<string>.Success("new-user-id");
 
+    public List<CreateIdentityUser> Establishments { get; } = [];
+
+    public Result<FirstAdministratorEstablishment> EstablishResult { get; set; } =
+        Result<FirstAdministratorEstablishment>.Success(FirstAdministratorEstablishment.Created);
+
     public Task<IdentityUserPage> ListUsersAsync(
         string? searchTerm,
         int page,
@@ -83,6 +88,14 @@ internal sealed class FakeIdentityAdministration : IIdentityAdministration
     {
         Revocations.Add((userId, roleName, observedEffectiveAdministratorIds));
         return Task.FromResult(RevokeResult);
+    }
+
+    public Task<Result<FirstAdministratorEstablishment>> EstablishFirstAdministratorAsync(
+        CreateIdentityUser request,
+        CancellationToken cancellationToken = default)
+    {
+        Establishments.Add(request);
+        return Task.FromResult(EstablishResult);
     }
 }
 

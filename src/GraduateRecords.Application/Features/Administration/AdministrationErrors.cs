@@ -23,6 +23,13 @@ public static class AdministrationErrors
     public const string AdministratorRoleUnavailableCode = "identity.admin.role-unavailable";
     public const string MissingAdministratorPreconditionCode = "identity.admin.precondition-missing";
 
+    // ADR-0016 §2.4/§14 (bootstrap provisioning — startup-time outcomes, never
+    // a user-facing screen). Codes stay stable; messages are fixed Persian text
+    // with no identifier, no configuration value and no stack trace (AGENTS §18).
+    public const string BootstrapConfigurationMissingCode = "identity.bootstrap.configuration-missing";
+    public const string BootstrapConfigurationInvalidCode = "identity.bootstrap.configuration-invalid";
+    public const string BootstrapRefusedCode = "identity.bootstrap.refused";
+
     public const string PermissionDeniedMessage = "شما دسترسی لازم برای این عملیات را ندارید.";
     public const string UserNotFoundMessage = "کاربر موردنظر یافت نشد.";
     public const string UnsupportedRoleMessage = "نقش انتخاب‌شده پشتیبانی نمی‌شود.";
@@ -38,6 +45,12 @@ public static class AdministrationErrors
         "نقش مدیر سامانه در دسترس نیست؛ عملیات انجام نشد.";
     public const string MissingAdministratorPreconditionMessage =
         "پیش‌شرط بررسی آخرین مدیر فراهم نشد؛ عملیات انجام نشد.";
+    public const string BootstrapConfigurationMissingMessage =
+        "پیکربندی ایجاد نخستین مدیر سامانه (شناسه ملی و شماره موبایل) ارائه نشده است.";
+    public const string BootstrapConfigurationInvalidMessage =
+        "پیکربندی ایجاد نخستین مدیر سامانه نامعتبر یا ناقص است.";
+    public const string BootstrapRefusedMessage =
+        "ایجاد خودکار مدیر سامانه برای این حساب مجاز نیست؛ عملیات انجام نشد.";
 
     public static Error PermissionDenied() =>
         new(ErrorKind.Forbidden, PermissionDeniedCode, PermissionDeniedMessage);
@@ -74,4 +87,13 @@ public static class AdministrationErrors
 
     public static Error MissingAdministratorPrecondition() =>
         new(ErrorKind.Unavailable, MissingAdministratorPreconditionCode, MissingAdministratorPreconditionMessage);
+
+    public static Error BootstrapConfigurationMissing() =>
+        new(ErrorKind.Unavailable, BootstrapConfigurationMissingCode, BootstrapConfigurationMissingMessage);
+
+    public static Error BootstrapConfigurationInvalid() =>
+        new(ErrorKind.Validation, BootstrapConfigurationInvalidCode, BootstrapConfigurationInvalidMessage);
+
+    public static Error BootstrapRefused() =>
+        new(ErrorKind.Conflict, BootstrapRefusedCode, BootstrapRefusedMessage);
 }

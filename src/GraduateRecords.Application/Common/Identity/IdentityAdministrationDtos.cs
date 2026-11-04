@@ -34,3 +34,24 @@ public sealed record CreateIdentityUser(
     string MobileNumber,
     LocalUserKind Kind,
     IReadOnlyList<string> Roles);
+
+/// <summary>
+/// Outcome of <c>IIdentityAdministration.EstablishFirstAdministratorAsync</c>
+/// (ADR-0016 §4.5). Exactly one of these is returned for every call; the
+/// operation never reports success for a write it did not perform.
+/// </summary>
+public enum FirstAdministratorEstablishment
+{
+    /// <summary>The configured identity did not exist; it was created and given the Administrator role in one transaction.</summary>
+    Created,
+
+    /// <summary>The configured identity already existed as an eligible account; only the missing Administrator role was assigned (profile untouched).</summary>
+    RoleEstablished,
+
+    /// <summary>
+    /// An effective Administrator already existed when the lock was acquired, so
+    /// the operation performed no writes at all (ADR-0016 §4.2 completion
+    /// guard re-checked inside the transaction — inert, never an error).
+    /// </summary>
+    AlreadyEstablished,
+}

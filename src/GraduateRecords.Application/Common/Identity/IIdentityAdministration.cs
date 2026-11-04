@@ -72,6 +72,38 @@ public interface IIdentityAdministration
     Task<Result<string>> CreateUserAsync(CreateIdentityUser request, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Establishes the <b>first</b> Administrator (ADR-0016 §1–§4): one
+    /// transaction that takes the Administrator role-row lock, re-checks the
+    /// effective-Administrator set <b>after</b> acquiring it, and only then
+    /// creates the identity (without any credential) or assigns the missing
+    /// role — all before a single commit.
+    /// <para>
+    /// Outcomes (<see cref="FirstAdministratorEstablishment"/>):
+    /// </para>
+    /// <list type="bullet">
+    /// <item><see cref="FirstAdministratorEstablishment.AlreadyEstablished"/> —
+    /// at least one effective Administrator existed at the locked re-check; the
+    /// operation performs <b>no writes at all</b> and reports a successful inert
+    /// outcome (ADR-0016 §4.2 — never an error).</item>
+    /// <item><see cref="FirstAdministratorEstablishment.Created"/> — no
+    /// Administrator existed and the identity did not exist: the identity is
+    /// created and given the role in the same transaction.</item>
+    /// <item><see cref="FirstAdministratorEstablishment.RoleEstablished"/> — no
+    /// Administrator existed and the identity already existed: only the role is
+    /// assigned; the existing profile is never modified (ADR-0016 §4.1).</item>
+    /// </list>
+    /// <para>
+    /// Application decides <b>whether</b> establishment may proceed (target
+    /// state, configuration, environment — ADR-0016 §4.5/§14); this operation
+    /// only guarantees the atomicity of the check-then-write sequence. The lock,
+    /// the transaction and the raw SQL live only here (AGENTS §2.1).
+    /// </para>
+    /// </summary>
+    Task<Result<FirstAdministratorEstablishment>> EstablishFirstAdministratorAsync(
+        CreateIdentityUser request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Grants a canonical role. Returns <c>true</c> when membership changed and
     /// <c>false</c> when the user already held it (no-op success — the caller
     /// audits only a change).

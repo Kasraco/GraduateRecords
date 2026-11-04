@@ -1,7 +1,10 @@
 using System.Threading.RateLimiting;
+using GraduateRecords.Application.Common.Messaging;
 using GraduateRecords.Application.Common.Security;
+using GraduateRecords.Application.Features.Administration.Bootstrap;
 using GraduateRecords.Infrastructure;
 using GraduateRecords.Infrastructure.Logging;
+using GraduateRecords.Infrastructure.Options;
 using GraduateRecords.Infrastructure.Persistence.Seed;
 using GraduateRecords.Web.Authorization;
 using GraduateRecords.Web.Controllers;
@@ -227,7 +230,7 @@ try
 {
     // UC2.3 (AGENTS §17 idempotent seed; ADR-0017 §7-§8): canonical
     // role/permission reconciliation runs before the application serves any
-    // request and before the future ADR-0016 bootstrap step (bootstrap assigns
+    // request and before the ADR-0016 bootstrap step below (bootstrap assigns
     // the Administrator role, so the catalog must exist first). A failure
     // aborts startup — the app must never serve with an unverified
     // authorization catalog (fail-closed). Not a hosted service (AGENTS §19).
@@ -236,6 +239,62 @@ try
         await reconciliationScope.ServiceProvider
             .GetRequiredService<RolePermissionReconciliation>()
             .RunAsync(app.Lifetime.ApplicationStopping);
+    }
+
+    // ADR-0016 §14.1: configuration validation precedes any bootstrap mutation.
+    // Resolving the options runs every registered validator, so an invalid or
+    // missing OIDC section still fails startup with exactly the pre-bootstrap
+    // OptionsValidationException, before a single row is written.
+    _ = app.Services.GetRequiredService<IOptions<IdentitySecuritySettings>>().Value;
+    _ = app.Services.GetRequiredService<IOptions<BootstrapAdministratorOptions>>().Value;
+
+    // ADR-0016 §1.3: the idempotent, completion-guarded Bootstrap step runs
+    // once per application start, from the composition root, after the schema
+    // and the role catalog are in place and before the app serves a request.
+    // It is NOT a hosted service (AGENTS §19), NOT a job and NOT a migration.
+    using (var bootstrapScope = app.Services.CreateScope())
+    {
+        var bootstrapConfiguration = bootstrapScope.ServiceProvider
+            .GetRequiredService<IOptions<BootstrapAdministratorOptions>>().Value;
+        var bootstrap = bootstrapScope.ServiceProvider
+            .GetRequiredService<ICommandHandler<BootstrapAdministratorCommand, BootstrapOutcome>>();
+
+        var bootstrapResult = await bootstrap.HandleAsync(
+            new BootstrapAdministratorCommand(
+                bootstrapConfiguration.NationalId,
+                bootstrapConfiguration.MobileNumber,
+                app.Environment.EnvironmentName),
+            app.Lifetime.ApplicationStopping);
+
+        if (bootstrapResult.IsSuccess)
+        {
+            // Fixed, non-sensitive outcome log — an outcome name at most, never
+            // a National ID, a mobile number or a configuration value
+            // (ADR-0016 §2.2/§12.3, AGENTS §14).
+            app.Logger.LogInformation(
+                "Bootstrap Administrator step finished with outcome {BootstrapOutcome}.",
+                bootstrapResult.Value);
+        }
+        else if (app.Environment.IsDevelopment())
+        {
+            // D1: in Development a refusal is logged and startup continues;
+            // the handler has already written the Denied audit event
+            // (ADR-0016 §14.2 Development branch).
+            app.Logger.LogError(
+                "Bootstrap Administrator step was refused with {BootstrapErrorCode}; continuing in Development.",
+                bootstrapResult.Error?.Code);
+        }
+        else
+        {
+            // D1 / ADR-0016 §14.2: fail closed outside Development, with a
+            // fixed message that never interpolates configuration values.
+            app.Logger.LogError(
+                "Bootstrap Administrator step failed with {BootstrapErrorCode}; startup refused outside Development.",
+                bootstrapResult.Error?.Code);
+            throw new InvalidOperationException(
+                "Bootstrap Administrator provisioning is required outside Development and did not complete " +
+                "(ADR-0016 §14.2). See the preceding log entry for the error code.");
+        }
     }
 
     await app.RunAsync();

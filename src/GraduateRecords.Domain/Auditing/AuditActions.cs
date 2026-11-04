@@ -38,4 +38,24 @@ public static class AuditActions
 
     /// <summary>A supported role was revoked from a user (ADR-0002 §9, ADR-0017 §10/§22).</summary>
     public const string AuthorizationRoleRevoked = "Authorization.RoleRevoked";
+
+    // --- Phase 1A Bootstrap slice (ADR-0016 §12.1 names the conceptual events;
+    // the constants are added in this implementing slice). Best-effort
+    // structured security events in Phase 1A — the durable append-only AuditLog
+    // arrives with Phase 1C (ADR-0016 §12.4). Payloads are ids and outcome
+    // only: never a National ID, a mobile number or any credential (AGENTS §14).
+
+    /// <summary>
+    /// The first Administrator identity was provisioned at startup, or the
+    /// provisioning was refused/failed (same event, <c>Result</c> distinguishes
+    /// Success/Denied/Failed — ADR-0016 §12.2). Actor is absent: bootstrap runs
+    /// without a session (ADR-0016 §12.2).
+    /// </summary>
+    public const string BootstrapAdministratorProvisioned = "Bootstrap.AdministratorProvisioned";
+
+    /// <summary>
+    /// The missing Administrator role was established on an already-existing
+    /// bootstrap identity (ADR-0016 §12.1, resume path of §4.5).
+    /// </summary>
+    public const string BootstrapAdministratorRoleEstablished = "Bootstrap.AdministratorRoleEstablished";
 }

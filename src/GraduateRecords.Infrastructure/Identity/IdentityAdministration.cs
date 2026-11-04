@@ -272,6 +272,161 @@ public sealed class IdentityAdministration(
         }
     }
 
+    /// <summary>
+    /// ADR-0016 §4.5 / approved decision D8: the one write path the Bootstrap
+    /// slice may use. A single transaction that (1) takes the Administrator
+    /// role-row lock, (2) re-checks the effective-Administrator set *after*
+    /// holding that lock, (3) creates the identity without a credential or
+    /// assigns only the missing role, and (4) commits. Because the re-check
+    /// runs inside the lock, a second instance that reaches this point after
+    /// the first one committed observes the committed Administrator and returns
+    /// <see cref="FirstAdministratorEstablishment.AlreadyEstablished"/> with no
+    /// writes at all. Every failure rolls back through the enclosing finally,
+    /// exactly like <see cref="CreateUserAsync"/>.
+    /// </summary>
+    public async Task<Result<FirstAdministratorEstablishment>> EstablishFirstAdministratorAsync(
+        CreateIdentityUser request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var roles = request.Roles.Distinct(StringComparer.Ordinal).ToList();
+
+        // Defence in depth (ADR-0017 §11): only supported, code-defined roles,
+        // and this operation exists solely to establish the canonical
+        // Administrator role (ADR-0016 §3.1) — anything else is a caller error
+        // that must never provision an identity.
+        foreach (var roleName in roles)
+        {
+            if (!RoleNames.IsSupported(roleName))
+            {
+                return Result<FirstAdministratorEstablishment>.Failure(AdministrationErrors.UnsupportedRole());
+            }
+        }
+
+        if (!roles.Contains(RoleNames.Administrator))
+        {
+            return Result<FirstAdministratorEstablishment>.Failure(AdministrationErrors.UnsupportedRole());
+        }
+
+        var nationalId = PersianTextNormalizer.NormalizeIdentifier(request.NationalId);
+
+        var transaction = await BeginAdministratorMutationAsync(cancellationToken);
+        if (transaction is null)
+        {
+            // ADR-0016 §14.6: role infrastructure unavailable → refuse entirely
+            // and create nothing; no half-provisioned privileged account.
+            return Result<FirstAdministratorEstablishment>.Failure(AdministrationErrors.AdministratorRoleUnavailable());
+        }
+
+        try
+        {
+            // The completion re-check (ADR-0016 §4.2) runs AFTER the role-row
+            // lock and inside the same transaction as every write below, so a
+            // committed Administrator from another instance is visible here and
+            // an uncommitted one cannot be (it would hold this very lock).
+            var currentAdministrators = await ReadEffectiveAdministratorIdsAsync(cancellationToken);
+            if (currentAdministrators.Count > 0)
+            {
+                // Inert: no user, no role, no profile write — disposal rolls the
+                // write-less transaction back (ADR-0016 §4.2, decision D2).
+                return Result<FirstAdministratorEstablishment>.Success(
+                    FirstAdministratorEstablishment.AlreadyEstablished);
+            }
+
+            var existing = await userManager.FindByNameAsync(nationalId);
+            if (existing is null)
+            {
+                var user = new ApplicationUser
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    UserName = nationalId,
+                    NationalId = nationalId,
+                    FullName = request.FullName.Trim(),
+                    PhoneNumber = PersianTextNormalizer.ToLatinDigits(request.MobileNumber).Trim(),
+                    UserKind = request.Kind,
+                    LockoutEnabled = true,
+                    SecurityStamp = Guid.NewGuid().ToString("N"),
+                };
+
+                // ADR-0016 §1.4/§13: provisioning never creates a credential.
+                var created = await userManager.CreateAsync(user);
+                if (!created.Succeeded)
+                {
+                    // Fixed message + error CODES only: Identity descriptions can
+                    // embed the user name, and the user name IS the National ID
+                    // (ADR-0015 §3; AGENTS §14 — never in logs).
+                    logger.LogWarning(
+                        "Bootstrap user creation failed. Identity error codes: {IdentityErrorCodes}",
+                        ErrorCodes(created));
+                    return Result<FirstAdministratorEstablishment>.Failure(AdministrationErrors.UserCreateFailed());
+                }
+
+                foreach (var roleName in roles)
+                {
+                    var assigned = await userManager.AddToRoleAsync(user, roleName);
+                    if (!assigned.Succeeded)
+                    {
+                        // The enclosing finally rolls the whole creation back:
+                        // never a kind-only half-provisioned account (ADR-0016
+                        // §14.7 is unreachable through this transaction).
+                        logger.LogWarning(
+                            "Bootstrap role assignment failed; creation rolled back. Role={RoleName} Identity error codes: {IdentityErrorCodes}",
+                            roleName,
+                            ErrorCodes(assigned));
+                        return Result<FirstAdministratorEstablishment>.Failure(AdministrationErrors.RoleMutationFailed());
+                    }
+                }
+
+                await transaction.CommitAsync(cancellationToken);
+                return Result<FirstAdministratorEstablishment>.Success(FirstAdministratorEstablishment.Created);
+            }
+
+            // Resume (ADR-0016 §4.5): the configured identity already exists —
+            // assign only the missing role. The existing profile (name, phone,
+            // kind) is never rewritten (§4.1: no clobbering of profile fields).
+            foreach (var roleName in roles)
+            {
+                if (await userManager.IsInRoleAsync(existing, roleName))
+                {
+                    continue;
+                }
+
+                var assigned = await userManager.AddToRoleAsync(existing, roleName);
+                if (!assigned.Succeeded)
+                {
+                    logger.LogWarning(
+                        "Bootstrap role establishment failed; nothing was committed. Role={RoleName} Identity error codes: {IdentityErrorCodes}",
+                        roleName,
+                        ErrorCodes(assigned));
+                    return Result<FirstAdministratorEstablishment>.Failure(AdministrationErrors.RoleMutationFailed());
+                }
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<FirstAdministratorEstablishment>.Success(FirstAdministratorEstablishment.RoleEstablished);
+        }
+        catch (DbUpdateException ex)
+        {
+            // A racing instance created the same identity between our lookup and
+            // our insert (unique index, ADR-0001 §6). SafeLogSink strips the
+            // exception text; only its type reaches any sink (AGENTS §14).
+            logger.LogWarning(ex, "Bootstrap provisioning hit a database uniqueness violation.");
+            return Result<FirstAdministratorEstablishment>.Failure(AdministrationErrors.DuplicateNationalId());
+        }
+        finally
+        {
+            await DisposeQuietlyAsync(transaction);
+        }
+    }
+
+    /// <summary>
+    /// Identity error CODES joined for a log line. Descriptions are deliberately
+    /// excluded: they embed the user name, which is the National ID.
+    /// </summary>
+    private static string ErrorCodes(IdentityResult result) =>
+        string.Join("; ", result.Errors.Select(error => error.Code));
+
     public async Task<Result<bool>> GrantRoleAsync(
         string userId,
         string roleName,
